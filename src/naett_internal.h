@@ -1,8 +1,6 @@
 #ifndef NAETT_INTERNAL_H
 #define NAETT_INTERNAL_H
 
-#include "naett.h"
-
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

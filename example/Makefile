@@ -1,4 +1,4 @@
-CFLAGS = -g -Wall -pedantic -Wno-gnu-zero-variadic-macro-arguments
+CFLAGS = -I.. -g -Wall -pedantic -Wno-gnu-zero-variadic-macro-arguments
 #CFLAGS = -O2
 
 ifeq ($(OS),Windows_NT)
@@ -12,5 +12,5 @@ else
 	endif
 endif
 
-naett: main.c naett.c naett_osx.c
+naett: main.c ../naett.c
 	gcc $^ -o $@ $(CFLAGS) $(LDFLAGS)
