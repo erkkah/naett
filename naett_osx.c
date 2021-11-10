@@ -4,6 +4,7 @@
 
 #include "naett_objc.h"
 #include <stdlib.h>
+#include <string.h>
 
 void naettPlatformInitRequest(InternalRequest* req) {
     id urlString = objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), req->url);
@@ -35,7 +36,30 @@ void naettPlatformInitRequest(InternalRequest* req) {
 
 void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
     InternalResponse* res = NULL;
-    object_getInstanceVariable(self, "response", (void**)&res);    
+    object_getInstanceVariable(self, "response", (void**)&res);
+
+    if (res->headers == NULL) {
+        id response = objc_msgSend_t(id)(dataTask, sel("response"));
+        id allHeaders = objc_msgSend_t(id)(response, sel("allHeaderFields"));
+
+        NSUInteger headerCount = objc_msgSend_t(NSUInteger)(allHeaders, sel("count"));
+        id headerNames[headerCount];
+        id headerValues[headerCount];
+
+        objc_msgSend_t(NSInteger, id*, id*, NSUInteger)(
+            allHeaders, sel("getObjects:andKeys:count:"), headerValues, headerNames, headerCount);
+        for (int i = 0; i < headerCount; i++) {
+            naettAlloc(KVLink, node);
+            node->key = strdup(objc_msgSend_t(const char*)(headerNames[i], sel("UTF8String")));
+            node->value = strdup(objc_msgSend_t(const char*)(headerValues[i], sel("UTF8String")));
+            node->next = res->headers;
+            res->headers = node;
+        }
+    }
+
+    const void* bytes = objc_msgSend_t(const void*)(data, sel("bytes"));
+    NSUInteger length = objc_msgSend_t(NSUInteger)(data, sel("length"));
+    res->request->options.bodyWriter(bytes, length, res->request->options.bodyWriterData);
 }
 
 void didComplete(id self, SEL _sel, id session, id dataTask, id error) {
@@ -44,9 +68,7 @@ void didComplete(id self, SEL _sel, id session, id dataTask, id error) {
     res->complete = 1;
 }
 
-naettRes* naettMake(naettReq* request) {
-    InternalRequest* req = (InternalRequest*)request;
-
+void naettPlatformMakeRequest(InternalRequest* req, InternalResponse* res) {
     Class TaskDelegateClass = objc_allocateClassPair((Class)objc_getClass("NSObject"), "TaskDelegate", 0);
     addMethod(TaskDelegateClass, "URLSession:dataTask:didReceiveData:", didReceiveData, "v@:@@@");
     addMethod(TaskDelegateClass, "URLSession:task:didCompleteWithError:", didComplete, "v@:@@@");
@@ -61,13 +83,14 @@ naettRes* naettMake(naettReq* request) {
         class("NSURLSession"), sel("sessionWithConfiguration:delegate:delegateQueue:"), config, delegate, nil);
     id task = objc_msgSend_t(id, id)(session, sel("dataTaskWithRequest:"), req->urlRequest);
 
-    naettAlloc(InternalResponse, response);
-    response->request = req;
-    object_setInstanceVariable(delegate, "response", (void*)response);
-
+    object_setInstanceVariable(delegate, "response", (void*)res);
     objc_msgSend_void(task, sel("resume"));
+}
 
-    return (naettRes*) response;
+void naettPlatformFreeRequest(InternalRequest* req) {
+}
+
+void naettPlatformCloseResponse(InternalResponse* res) {
 }
 
 #endif  // __MACOS__

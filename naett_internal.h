@@ -34,13 +34,16 @@ typedef struct KVLink {
 typedef struct Buffer {
     void* data;
     int size;
+    int capacity;
 } Buffer;
 
 typedef struct {
     const char* method;
     int timeoutMS;
     naettReadFunc bodyReader;
+    void* bodyReaderData;
     naettWriteFunc bodyWriter;
+    void* bodyWriterData;
     KVLink* headers;
     Buffer body;
 } RequestOptions;
@@ -57,9 +60,13 @@ typedef struct {
     InternalRequest* request;
     int complete;
     int code;
+    KVLink* headers;
     Buffer body;
 } InternalResponse;
 
 void naettPlatformInitRequest(InternalRequest* req);
+void naettPlatformMakeRequest(InternalRequest* req, InternalResponse* res);
+void naettPlatformFreeRequest(InternalRequest* req);
+void naettPlatformCloseResponse(InternalResponse* res);
 
 #endif  // NAETT_INTERNAL_H
