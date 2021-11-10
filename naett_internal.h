@@ -62,6 +62,9 @@ typedef struct {
     int code;
     KVLink* headers;
     Buffer body;
+#if __APPLE__
+    id session;
+#endif
 } InternalResponse;
 
 void naettPlatformInitRequest(InternalRequest* req);

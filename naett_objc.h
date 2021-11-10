@@ -47,6 +47,9 @@
     if (!class_addIvar(CLASS, NAME, SIZE, rint(log2(SIZE)), SIGNATURE)) assert(false)
 
 #define objc_alloc(CLASS) objc_msgSend_id(class(CLASS), sel("alloc"))
+#define autorelease(OBJ) objc_msgSend_void(OBJ, sel("autorelease"))
+#define retain(OBJ) objc_msgSend_void(OBJ, sel("retain"))
+#define release(OBJ) objc_msgSend_void(OBJ, sel("release"))
 
 #if __LP64__ || NS_BUILD_32_LIKE_64
 #define NSIntegerEncoding "q"
