@@ -156,11 +156,11 @@ naettOption* naettBodyReader(naettReadFunc reader, void* userData) {
     InternalParam* readerParam = &option->params[0];
     InternalParam* dataParam = &option->params[1];
 
-    readerParam->ptr = reader;
+    readerParam->ptr = (void*) reader;
     readerParam->offset = offsetof(RequestOptions, bodyReader);
     readerParam->setter = ptrSetter;
 
-    dataParam->ptr = reader;
+    dataParam->ptr = userData;
     dataParam->offset = offsetof(RequestOptions, bodyReaderData);
     dataParam->setter = ptrSetter;
 
@@ -174,11 +174,11 @@ naettOption* naettBodyWriter(naettWriteFunc writer, void* userData) {
     InternalParam* writerParam = &option->params[0];
     InternalParam* dataParam = &option->params[1];
 
-    writerParam->ptr = writer;
+    writerParam->ptr = (void*) writer;
     writerParam->offset = offsetof(RequestOptions, bodyWriter);
     writerParam->setter = ptrSetter;
 
-    dataParam->ptr = writer;
+    dataParam->ptr = userData;
     dataParam->offset = offsetof(RequestOptions, bodyWriterData);
     dataParam->setter = ptrSetter;
 

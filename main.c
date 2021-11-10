@@ -12,5 +12,6 @@ int main(int argc, char** argv) {
 
     int bodyLength = 0;
     const char* body = naettGetBody(res, &bodyLength);
-    printf("Got %d bytes of type %s\n", bodyLength, naettGetHeader(res, "content-type"));
+    printf("Got %d bytes of type '%s':\n", bodyLength, naettGetHeader(res, "Content-Type"));
+    printf("%.100s\n...\n", body);
 }

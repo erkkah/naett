@@ -1,4 +1,4 @@
-CFLAGS = -g
+CFLAGS = -g -Wall -pedantic -Wno-gnu-zero-variadic-macro-arguments
 #CFLAGS = -O2
 
 ifeq ($(OS),Windows_NT)
