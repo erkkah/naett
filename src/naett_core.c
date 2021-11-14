@@ -61,6 +61,18 @@ static void kvSetter(InternalParamPtr param, InternalRequest* req) {
     *kvField = newNode;
 }
 
+static int defaultBodyReader(void* dest, int bufferSize, void* userData) {
+    Buffer* buffer = (Buffer*) userData;
+    int bytesToRead = buffer->size - buffer->position;
+    if (bytesToRead > bufferSize) {
+        bytesToRead = bufferSize;
+    }
+
+    memcpy(dest, buffer->data + buffer->position, bytesToRead);
+    buffer->position += bytesToRead;
+    return bytesToRead;
+}
+
 static int defaultBodyWriter(const void* source, int bytes, void* userData) {
     Buffer* buffer = (Buffer*) userData;
     int newCapacity = buffer->capacity;
@@ -95,8 +107,8 @@ static void applyOptionParams(InternalRequest* req, InternalOption* option) {
 
 // Public API
 
-void naettInit(void* initThing) {
-    naettPlatformInit(initThing);
+void naettInit(naettInitData initData) {
+    naettPlatformInit(initData);
 }
 
 naettOption* naettMethod(const char* method) {
@@ -234,6 +246,13 @@ naettRes* naettMake(naettReq* request) {
     InternalRequest* req = (InternalRequest*)request;
     naettAlloc(InternalResponse, res);
     res->request = req;
+    if (req->options.bodyReader == NULL) {
+        req->options.bodyReader = defaultBodyReader;
+        req->options.bodyReaderData = (void*) &req->options.body;
+    }
+    if (req->options.bodyReader == defaultBodyReader) {
+        req->options.body.position = 0;
+    }
     if (req->options.bodyWriter == NULL) {
         req->options.bodyWriter = defaultBodyWriter;
         req->options.bodyWriterData = (void*) &res->body;
@@ -262,7 +281,7 @@ const char* naettGetHeader(naettRes* response, const char* name) {
 
 int naettComplete(const naettRes* response) {
     InternalResponse* res = (InternalResponse*)response;
-    return res->code != 0;
+    return res->complete;
 }
 
 int naettGetStatus(const naettRes* response) {
@@ -270,9 +289,28 @@ int naettGetStatus(const naettRes* response) {
     return res->code;
 }
 
+static void freeKVList(KVLink* node) {
+    while (node != NULL) {
+        free(node->key);
+        free(node->value);
+        KVLink* next = node->next;
+        free(node);
+        node = next;
+    }
+}
+
 void naettFree(naettReq* request) {
     InternalRequest* req = (InternalRequest*)request;
     naettPlatformFreeRequest(req);
+    if (req->options.body.data != NULL) {
+        free(req->options.body.data);
+    }
+    KVLink* node = req->options.headers;
+    freeKVList(node);
+    if (req->options.body.data != NULL) {
+        free(req->options.body.data);
+    }
+    free(req->url);
     free(request);
 }
 
@@ -280,5 +318,10 @@ void naettClose(naettRes* response) {
     InternalResponse* res = (InternalResponse*)response;
     res->request = NULL;
     naettPlatformCloseResponse(res);
+    if (res->body.data != NULL) {
+        free(res->body.data);
+    }
+    KVLink* node = res->headers;
+    freeKVList(node);
     free(response);
 }

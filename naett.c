@@ -42,6 +42,7 @@ typedef struct Buffer {
     void* data;
     int size;
     int capacity;
+    int position;
 } Buffer;
 
 typedef struct {
@@ -69,6 +70,7 @@ typedef struct {
 typedef struct {
     InternalRequest* request;
     int code;
+    int complete;
     KVLink* headers;
     Buffer body;
 #if __APPLE__
@@ -80,7 +82,7 @@ typedef struct {
 #endif
 } InternalResponse;
 
-void naettPlatformInit(void* initThing);
+void naettPlatformInit(naettInitData initData);
 int naettPlatformInitRequest(InternalRequest* req);
 void naettPlatformMakeRequest(InternalResponse* res);
 void naettPlatformFreeRequest(InternalRequest* req);
@@ -151,6 +153,18 @@ static void kvSetter(InternalParamPtr param, InternalRequest* req) {
     *kvField = newNode;
 }
 
+static int defaultBodyReader(void* dest, int bufferSize, void* userData) {
+    Buffer* buffer = (Buffer*) userData;
+    int bytesToRead = buffer->size - buffer->position;
+    if (bytesToRead > bufferSize) {
+        bytesToRead = bufferSize;
+    }
+
+    memcpy(dest, buffer->data + buffer->position, bytesToRead);
+    buffer->position += bytesToRead;
+    return bytesToRead;
+}
+
 static int defaultBodyWriter(const void* source, int bytes, void* userData) {
     Buffer* buffer = (Buffer*) userData;
     int newCapacity = buffer->capacity;
@@ -185,8 +199,8 @@ static void applyOptionParams(InternalRequest* req, InternalOption* option) {
 
 // Public API
 
-void naettInit(void* initThing) {
-    naettPlatformInit(initThing);
+void naettInit(naettInitData initData) {
+    naettPlatformInit(initData);
 }
 
 naettOption* naettMethod(const char* method) {
@@ -324,6 +338,13 @@ naettRes* naettMake(naettReq* request) {
     InternalRequest* req = (InternalRequest*)request;
     naettAlloc(InternalResponse, res);
     res->request = req;
+    if (req->options.bodyReader == NULL) {
+        req->options.bodyReader = defaultBodyReader;
+        req->options.bodyReaderData = (void*) &req->options.body;
+    }
+    if (req->options.bodyReader == defaultBodyReader) {
+        req->options.body.position = 0;
+    }
     if (req->options.bodyWriter == NULL) {
         req->options.bodyWriter = defaultBodyWriter;
         req->options.bodyWriterData = (void*) &res->body;
@@ -352,7 +373,7 @@ const char* naettGetHeader(naettRes* response, const char* name) {
 
 int naettComplete(const naettRes* response) {
     InternalResponse* res = (InternalResponse*)response;
-    return res->code != 0;
+    return res->complete;
 }
 
 int naettGetStatus(const naettRes* response) {
@@ -360,9 +381,28 @@ int naettGetStatus(const naettRes* response) {
     return res->code;
 }
 
+static void freeKVList(KVLink* node) {
+    while (node != NULL) {
+        free(node->key);
+        free(node->value);
+        KVLink* next = node->next;
+        free(node);
+        node = next;
+    }
+}
+
 void naettFree(naettReq* request) {
     InternalRequest* req = (InternalRequest*)request;
     naettPlatformFreeRequest(req);
+    if (req->options.body.data != NULL) {
+        free(req->options.body.data);
+    }
+    KVLink* node = req->options.headers;
+    freeKVList(node);
+    if (req->options.body.data != NULL) {
+        free(req->options.body.data);
+    }
+    free(req->url);
     free(request);
 }
 
@@ -370,6 +410,11 @@ void naettClose(naettRes* response) {
     InternalResponse* res = (InternalResponse*)response;
     res->request = NULL;
     naettPlatformCloseResponse(res);
+    if (res->body.data != NULL) {
+        free(res->body.data);
+    }
+    KVLink* node = res->headers;
+    freeKVList(node);
     free(response);
 }
 // End of inlined naett_core.c //
@@ -445,6 +490,9 @@ void naettClose(naettRes* response) {
 #include <stdlib.h>
 #include <string.h>
 
+void naettPlatformInit(naettInitData initData) {
+}
+
 int naettPlatformInitRequest(InternalRequest* req) {
     id urlString = objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), req->url);
     id url = objc_msgSend_t(id, id)(class("NSURL"), sel("URLWithString:"), urlString);
@@ -469,16 +517,23 @@ int naettPlatformInitRequest(InternalRequest* req) {
         header = header->next;
     }
 
-    if (req->options.body.data) {
-        Buffer* body = &req->options.body;
+    const int bufSize = 10240;
+    char byteBuffer[bufSize];
+    int bytesRead = 0;
 
-        id bodyData = objc_msgSend_t(id, void*, NSUInteger, BOOL)(
-            class("NSData"), sel("dataWithBytesNoCopy:length:freeWhenDone:"), body->data, body->size, NO);
+    if (req->options.bodyReader != NULL) {
+        id bodyData = objc_msgSend_t(id, NSUInteger)(class("NSMutableData"), sel("dataWithCapacity"), bufSize);
+        do {
+            bytesRead = req->options.bodyReader(byteBuffer, bufSize, req->options.bodyReaderData);
+            objc_msgSend_t(void, const void*, NSUInteger)(bodyData, sel("appendBytes:length:"), byteBuffer, bytesRead);
+        } while (bytesRead > 0);
+
         objc_msgSend_t(void, id)(request, sel("setHTTPBody:"), bodyData);
         release(bodyData);
     }
 
     req->urlRequest = request;
+    return 1;
 }
 
 void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
@@ -531,7 +586,9 @@ static id createDelegate() {
     return delegate;
 }
 
-void naettPlatformMakeRequest(InternalRequest* req, InternalResponse* res) {
+void naettPlatformMakeRequest(InternalResponse* res) {
+    InternalRequest* req = res->request;
+
     id config = objc_msgSend_id(class("NSURLSessionConfiguration"), sel("ephemeralSessionConfiguration"));
     id delegate = createDelegate();
 
@@ -668,8 +725,8 @@ static jint intCall(JNIEnv* env, jobject instance, const char* method, const cha
     return result;
 }
 
-void naettPlatformInit(void* initThing) {
-    globalVM = (JavaVM*)initThing;
+void naettPlatformInit(naettInitData initData) {
+    globalVM = initData.vm;
 }
 
 int naettPlatformInitRequest(InternalRequest* req) {
@@ -810,6 +867,7 @@ static void* processRequest(void* data) {
     voidCall(env, inputStream, "close", "()V");
 
     res->code = statusCode;
+    res->complete = 1;
 
 finally:
     (*env)->PopLocalFrame(env, NULL);

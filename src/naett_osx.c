@@ -6,6 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+void naettPlatformInit(naettInitData initData) {
+}
+
 int naettPlatformInitRequest(InternalRequest* req) {
     id urlString = objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), req->url);
     id url = objc_msgSend_t(id, id)(class("NSURL"), sel("URLWithString:"), urlString);
@@ -30,11 +33,17 @@ int naettPlatformInitRequest(InternalRequest* req) {
         header = header->next;
     }
 
-    if (req->options.body.data) {
-        Buffer* body = &req->options.body;
+    const int bufSize = 10240;
+    char byteBuffer[bufSize];
+    int bytesRead = 0;
 
-        id bodyData = objc_msgSend_t(id, void*, NSUInteger, BOOL)(
-            class("NSData"), sel("dataWithBytesNoCopy:length:freeWhenDone:"), body->data, body->size, NO);
+    if (req->options.bodyReader != NULL) {
+        id bodyData = objc_msgSend_t(id, NSUInteger)(class("NSMutableData"), sel("dataWithCapacity"), bufSize);
+        do {
+            bytesRead = req->options.bodyReader(byteBuffer, bufSize, req->options.bodyReaderData);
+            objc_msgSend_t(void, const void*, NSUInteger)(bodyData, sel("appendBytes:length:"), byteBuffer, bytesRead);
+        } while (bytesRead > 0);
+
         objc_msgSend_t(void, id)(request, sel("setHTTPBody:"), bodyData);
         release(bodyData);
     }
@@ -93,7 +102,9 @@ static id createDelegate() {
     return delegate;
 }
 
-void naettPlatformMakeRequest(InternalRequest* req, InternalResponse* res) {
+void naettPlatformMakeRequest(InternalResponse* res) {
+    InternalRequest* req = res->request;
+
     id config = objc_msgSend_id(class("NSURLSessionConfiguration"), sel("ephemeralSessionConfiguration"));
     id delegate = createDelegate();
 

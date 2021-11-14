@@ -38,6 +38,7 @@ typedef struct Buffer {
     void* data;
     int size;
     int capacity;
+    int position;
 } Buffer;
 
 typedef struct {
@@ -65,6 +66,7 @@ typedef struct {
 typedef struct {
     InternalRequest* request;
     int code;
+    int complete;
     KVLink* headers;
     Buffer body;
 #if __APPLE__
@@ -76,7 +78,7 @@ typedef struct {
 #endif
 } InternalResponse;
 
-void naettPlatformInit(void* initThing);
+void naettPlatformInit(naettInitData initData);
 int naettPlatformInitRequest(InternalRequest* req);
 void naettPlatformMakeRequest(InternalResponse* res);
 void naettPlatformFreeRequest(InternalRequest* req);

@@ -83,8 +83,8 @@ static jint intCall(JNIEnv* env, jobject instance, const char* method, const cha
     return result;
 }
 
-void naettPlatformInit(void* initThing) {
-    globalVM = (JavaVM*)initThing;
+void naettPlatformInit(naettInitData initData) {
+    globalVM = initData.vm;
 }
 
 int naettPlatformInitRequest(InternalRequest* req) {
@@ -225,6 +225,7 @@ static void* processRequest(void* data) {
     voidCall(env, inputStream, "close", "()V");
 
     res->code = statusCode;
+    res->complete = 1;
 
 finally:
     (*env)->PopLocalFrame(env, NULL);
