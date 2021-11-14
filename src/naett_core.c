@@ -82,6 +82,7 @@ static int defaultBodyWriter(const void* source, int bytes, void* userData) {
 
 static void initRequest(InternalRequest* req, const char* url) {
     req->options.method = strdup("GET");
+    req->options.timeoutMS = 5000;
     req->url = strdup(url);
 }
 
@@ -93,6 +94,10 @@ static void applyOptionParams(InternalRequest* req, InternalOption* option) {
 }
 
 // Public API
+
+void naettInit(void* initThing) {
+    naettPlatformInit(initThing);
+}
 
 naettOption* naettMethod(const char* method) {
     naettAlloc(InternalOption, option);
@@ -184,6 +189,7 @@ naettOption* naettBodyWriter(naettWriteFunc writer, void* userData) {
 
     return (naettOption*)option;
 }
+
 naettReq* naettRequest_va(const char* url, int numArgs, ...) {
     va_list args;
     InternalOption* option;
@@ -198,8 +204,12 @@ naettReq* naettRequest_va(const char* url, int numArgs, ...) {
     }
     va_end(args);
 
-    naettPlatformInitRequest(req);
-    return (naettReq*)req;
+    if (naettPlatformInitRequest(req)) {
+        return (naettReq*)req;
+    }
+    
+    naettFree(req);
+    return NULL;
 }
 
 naettReq* naettRequestWithOptions(const char* url, int numOptions, const naettOption** options) {
@@ -212,8 +222,12 @@ naettReq* naettRequestWithOptions(const char* url, int numOptions, const naettOp
         free(option);
     }
 
-    naettPlatformInitRequest(req);
-    return (naettReq*)req;
+    if (naettPlatformInitRequest(req)) {
+        return (naettReq*)req;
+    }
+    
+    naettFree(req);
+    return NULL;
 }
 
 naettRes* naettMake(naettReq* request) {
@@ -224,7 +238,7 @@ naettRes* naettMake(naettReq* request) {
         req->options.bodyWriter = defaultBodyWriter;
         req->options.bodyWriterData = (void*) &res->body;
     }
-    naettPlatformMakeRequest(req, res);
+    naettPlatformMakeRequest(res);
     return (naettRes*) res;
 }
 
@@ -248,7 +262,12 @@ const char* naettGetHeader(naettRes* response, const char* name) {
 
 int naettComplete(const naettRes* response) {
     InternalResponse* res = (InternalResponse*)response;
-    return res->complete;
+    return res->code != 0;
+}
+
+int naettGetStatus(const naettRes* response) {
+    InternalResponse* res = (InternalResponse*)response;
+    return res->code;
 }
 
 void naettFree(naettReq* request) {

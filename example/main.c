@@ -3,8 +3,10 @@
 #include <stdio.h>
 
 int main(int argc, char** argv) {
+    naettInit(NULL);
+    
     naettReq* req =
-        naettRequest("http://www.dn.se", naettMethod("GET"), naettHeader("content-type", "application/json"));
+        naettRequest("https://www.dn.se", naettMethod("GET"), naettHeader("accept", "application/json"));
     naettRes* res = naettMake(req);
     while (!naettComplete(res)) {
         usleep(100 * 1000);

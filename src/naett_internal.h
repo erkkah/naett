@@ -11,6 +11,11 @@
 #define __LINUX__ 1
 #endif
 
+#if __ANDROID__
+#include <jni.h>
+#include <pthread.h>
+#endif
+
 #ifdef __APPLE__
 #include "TargetConditionals.h"
 #include <objc/objc.h>
@@ -52,21 +57,28 @@ typedef struct {
 #if __APPLE__
     id urlRequest;
 #endif
+#if __ANDROID__
+    jobject urlObject;
+#endif
 } InternalRequest;
 
 typedef struct {
     InternalRequest* request;
-    int complete;
     int code;
     KVLink* headers;
     Buffer body;
 #if __APPLE__
     id session;
 #endif
+#if __ANDROID__
+    pthread_t workerThread;
+    int closeRequested;
+#endif
 } InternalResponse;
 
-void naettPlatformInitRequest(InternalRequest* req);
-void naettPlatformMakeRequest(InternalRequest* req, InternalResponse* res);
+void naettPlatformInit(void* initThing);
+int naettPlatformInitRequest(InternalRequest* req);
+void naettPlatformMakeRequest(InternalResponse* res);
 void naettPlatformFreeRequest(InternalRequest* req);
 void naettPlatformCloseResponse(InternalResponse* res);
 

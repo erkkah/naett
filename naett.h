@@ -1,6 +1,12 @@
 #ifndef LIBNAETT_H
 #define LIBNAETT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void naettInit(void* initThing);
+
 typedef struct naettReq naettReq;
 typedef struct naettRes naettRes;
 typedef struct naettOption naettOption;
@@ -20,11 +26,22 @@ void naettFree(naettReq* request);
 naettRes* naettMake(naettReq* request);
 
 int naettComplete(const naettRes* response);
+enum {
+    naettConnectionError = -1,
+    naettProtocolError = -2,
+    naettReadError = -3,
+    naettConnecting = 0,
+};
+int naettGetStatus(const naettRes* response);
 const void* naettGetBody(naettRes* response, int* size);
 const char* naettGetHeader(naettRes* response, const char* name);
 void naettClose(naettRes* response);
 
 naettReq* naettRequest_va(const char* url, int numOptions, ...);
 #define countOptions(...) ((sizeof((void*[]){ __VA_ARGS__ }) / sizeof(void*)))
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // LIBNAETT_H

@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-void naettPlatformInitRequest(InternalRequest* req) {
+int naettPlatformInitRequest(InternalRequest* req) {
     id urlString = objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), req->url);
     id url = objc_msgSend_t(id, id)(class("NSURL"), sel("URLWithString:"), urlString);
     release(urlString);
@@ -40,6 +40,7 @@ void naettPlatformInitRequest(InternalRequest* req) {
     }
 
     req->urlRequest = request;
+    return 1;
 }
 
 void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
