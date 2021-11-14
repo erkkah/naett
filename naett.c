@@ -160,7 +160,8 @@ static int defaultBodyReader(void* dest, int bufferSize, void* userData) {
         bytesToRead = bufferSize;
     }
 
-    memcpy(dest, buffer->data + buffer->position, bytesToRead);
+    const char* source = ((const char*)buffer->data) + buffer->position;
+    memcpy(dest, source, bytesToRead);
     buffer->position += bytesToRead;
     return bytesToRead;
 }
@@ -312,7 +313,7 @@ naettReq* naettRequest_va(const char* url, int numArgs, ...) {
         return (naettReq*)req;
     }
     
-    naettFree(req);
+    naettFree((naettReq*) req);
     return NULL;
 }
 
@@ -330,7 +331,7 @@ naettReq* naettRequestWithOptions(const char* url, int numOptions, const naettOp
         return (naettReq*)req;
     }
     
-    naettFree(req);
+    naettFree((naettReq*) req);
     return NULL;
 }
 
@@ -383,8 +384,8 @@ int naettGetStatus(const naettRes* response) {
 
 static void freeKVList(KVLink* node) {
     while (node != NULL) {
-        free(node->key);
-        free(node->value);
+        free((void*) node->key);
+        free((void*) node->value);
         KVLink* next = node->next;
         free(node);
         node = next;
@@ -402,7 +403,7 @@ void naettFree(naettReq* request) {
     if (req->options.body.data != NULL) {
         free(req->options.body.data);
     }
-    free(req->url);
+    free((void*)req->url);
     free(request);
 }
 
@@ -517,14 +518,14 @@ int naettPlatformInitRequest(InternalRequest* req) {
         header = header->next;
     }
 
-    const int bufSize = 10240;
-    char byteBuffer[bufSize];
+    char byteBuffer[10240];
     int bytesRead = 0;
 
     if (req->options.bodyReader != NULL) {
-        id bodyData = objc_msgSend_t(id, NSUInteger)(class("NSMutableData"), sel("dataWithCapacity"), bufSize);
+        id bodyData = objc_msgSend_t(id, NSUInteger)(class("NSMutableData"), sel("dataWithCapacity:"), sizeof(byteBuffer));
+
         do {
-            bytesRead = req->options.bodyReader(byteBuffer, bufSize, req->options.bodyReaderData);
+            bytesRead = req->options.bodyReader(byteBuffer, sizeof(byteBuffer), req->options.bodyReaderData);
             objc_msgSend_t(void, const void*, NSUInteger)(bodyData, sel("appendBytes:length:"), byteBuffer, bytesRead);
         } while (bytesRead > 0);
 
@@ -542,6 +543,7 @@ void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
 
     if (res->headers == NULL) {
         id response = objc_msgSend_t(id)(dataTask, sel("response"));
+        res->code = objc_msgSend_t(NSInteger)(response, sel("statusCode"));
         id allHeaders = objc_msgSend_t(id)(response, sel("allHeaderFields"));
 
         NSUInteger headerCount = objc_msgSend_t(NSUInteger)(allHeaders, sel("count"));

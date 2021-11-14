@@ -68,7 +68,8 @@ static int defaultBodyReader(void* dest, int bufferSize, void* userData) {
         bytesToRead = bufferSize;
     }
 
-    memcpy(dest, buffer->data + buffer->position, bytesToRead);
+    const char* source = ((const char*)buffer->data) + buffer->position;
+    memcpy(dest, source, bytesToRead);
     buffer->position += bytesToRead;
     return bytesToRead;
 }
@@ -220,7 +221,7 @@ naettReq* naettRequest_va(const char* url, int numArgs, ...) {
         return (naettReq*)req;
     }
     
-    naettFree(req);
+    naettFree((naettReq*) req);
     return NULL;
 }
 
@@ -238,7 +239,7 @@ naettReq* naettRequestWithOptions(const char* url, int numOptions, const naettOp
         return (naettReq*)req;
     }
     
-    naettFree(req);
+    naettFree((naettReq*) req);
     return NULL;
 }
 
@@ -291,8 +292,8 @@ int naettGetStatus(const naettRes* response) {
 
 static void freeKVList(KVLink* node) {
     while (node != NULL) {
-        free(node->key);
-        free(node->value);
+        free((void*) node->key);
+        free((void*) node->value);
         KVLink* next = node->next;
         free(node);
         node = next;
@@ -310,7 +311,7 @@ void naettFree(naettReq* request) {
     if (req->options.body.data != NULL) {
         free(req->options.body.data);
     }
-    free(req->url);
+    free((void*)req->url);
     free(request);
 }
 

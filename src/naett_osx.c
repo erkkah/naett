@@ -33,14 +33,14 @@ int naettPlatformInitRequest(InternalRequest* req) {
         header = header->next;
     }
 
-    const int bufSize = 10240;
-    char byteBuffer[bufSize];
+    char byteBuffer[10240];
     int bytesRead = 0;
 
     if (req->options.bodyReader != NULL) {
-        id bodyData = objc_msgSend_t(id, NSUInteger)(class("NSMutableData"), sel("dataWithCapacity"), bufSize);
+        id bodyData = objc_msgSend_t(id, NSUInteger)(class("NSMutableData"), sel("dataWithCapacity:"), sizeof(byteBuffer));
+
         do {
-            bytesRead = req->options.bodyReader(byteBuffer, bufSize, req->options.bodyReaderData);
+            bytesRead = req->options.bodyReader(byteBuffer, sizeof(byteBuffer), req->options.bodyReaderData);
             objc_msgSend_t(void, const void*, NSUInteger)(bodyData, sel("appendBytes:length:"), byteBuffer, bytesRead);
         } while (bytesRead > 0);
 
@@ -58,6 +58,7 @@ void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
 
     if (res->headers == NULL) {
         id response = objc_msgSend_t(id)(dataTask, sel("response"));
+        res->code = objc_msgSend_t(NSInteger)(response, sel("statusCode"));
         id allHeaders = objc_msgSend_t(id)(response, sel("allHeaderFields"));
 
         NSUInteger headerCount = objc_msgSend_t(NSUInteger)(allHeaders, sel("count"));
