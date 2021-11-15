@@ -132,7 +132,6 @@ static void* processRequest(void* data) {
     jobject methodString = (*env)->NewStringUTF(env, req->options.method);
     voidCall(env, connection, "setRequestMethod", "(Ljava/lang/String;)V", methodString);
     voidCall(env, connection, "setConnectTimeout", "(I)V", req->options.timeoutMS);
-    voidCall(env, connection, "setReadTimeout", "(I)V", req->options.timeoutMS);
     voidCall(env, connection, "setInstanceFollowRedirects", "(Z)V", 1);
 
     voidCall(env, connection, "connect", "()V");

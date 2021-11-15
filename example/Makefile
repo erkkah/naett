@@ -8,7 +8,7 @@ else
 	ifeq ($(UNAME_S),Darwin)
 		LDFLAGS = -framework Cocoa
 	else ifeq ($(UNAME_S),Linux)
-		#LDFLAGS = -s -lGLU -lGL -lX11
+		LDFLAGS = -lcurl
 	endif
 endif
 

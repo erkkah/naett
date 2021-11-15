@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+void naettPlatformInit(naettInitData initData) {   
+}
+
 int naettPlatformInitRequest(InternalRequest* req) {
 }
 

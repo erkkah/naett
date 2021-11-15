@@ -1,6 +1,6 @@
 #include "naett_internal.h"
 
-#ifdef __MACOS__
+#ifdef __APPLE__
 
 #include "naett_objc.h"
 #include <stdlib.h>
@@ -37,7 +37,8 @@ int naettPlatformInitRequest(InternalRequest* req) {
     int bytesRead = 0;
 
     if (req->options.bodyReader != NULL) {
-        id bodyData = objc_msgSend_t(id, NSUInteger)(class("NSMutableData"), sel("dataWithCapacity:"), sizeof(byteBuffer));
+        id bodyData =
+            objc_msgSend_t(id, NSUInteger)(class("NSMutableData"), sel("dataWithCapacity:"), sizeof(byteBuffer));
 
         do {
             bytesRead = req->options.bodyReader(byteBuffer, sizeof(byteBuffer), req->options.bodyReaderData);
@@ -130,4 +131,4 @@ void naettPlatformCloseResponse(InternalResponse* res) {
     release(res->session);
 }
 
-#endif  // __MACOS__
+#endif  // __APPLE__

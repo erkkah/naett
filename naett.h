@@ -7,9 +7,6 @@ extern "C" {
 
 #if __ANDROID__
 #include <jni.h>
-#endif
-
-#if __ANDROID__
 typedef JavaVM* naettInitData;
 #else
 typedef void* naettInitData;
@@ -23,9 +20,11 @@ void naettInit(naettInitData initThing);
 
 typedef struct naettReq naettReq;
 typedef struct naettRes naettRes;
-typedef struct naettOption naettOption;
 typedef int (*naettReadFunc)(void* dest, int bufferSize, void* userData);
 typedef int (*naettWriteFunc)(const void* source, int bytes, void* userData);
+
+// Option to `naettRequest`
+typedef struct naettOption naettOption;
 
 // Sets request method. Defaults to "GET".
 naettOption* naettMethod(const char* method);
@@ -37,7 +36,7 @@ naettOption* naettBody(const char* body, int size);
 naettOption* naettBodyReader(naettReadFunc reader, void* userData);
 // Sets a response body writer.
 naettOption* naettBodyWriter(naettWriteFunc writer, void* userData);
-// Sets timeout, used both for connection and read.
+// Sets connection timeout in milliseconds.
 naettOption* naettTimeout(int milliSeconds);
 
 /**

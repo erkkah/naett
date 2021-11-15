@@ -1,5 +1,6 @@
 #include "naett.h"
 #include "naett_core.c"
 #include "naett_osx.c"
+#include "naett_linux.c"
 #include "naett_win.c"
 #include "naett_android.c"

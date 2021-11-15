@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
+#include <assert.h>
 
 typedef struct InternalParam* InternalParamPtr;
 typedef void (*ParamSetter)(InternalParamPtr param, InternalRequest* req);
@@ -93,7 +94,10 @@ static int defaultBodyWriter(const void* source, int bytes, void* userData) {
     return bytes;
 }
 
+static int initialized = 0;
+
 static void initRequest(InternalRequest* req, const char* url) {
+    assert(initialized);
     req->options.method = strdup("GET");
     req->options.timeoutMS = 5000;
     req->url = strdup(url);
@@ -109,7 +113,9 @@ static void applyOptionParams(InternalRequest* req, InternalOption* option) {
 // Public API
 
 void naettInit(naettInitData initData) {
+    assert(!initialized);
     naettPlatformInit(initData);
+    initialized = 1;
 }
 
 naettOption* naettMethod(const char* method) {
@@ -244,6 +250,7 @@ naettReq* naettRequestWithOptions(const char* url, int numOptions, const naettOp
 }
 
 naettRes* naettMake(naettReq* request) {
+    assert(initialized);
     InternalRequest* req = (InternalRequest*)request;
     naettAlloc(InternalResponse, res);
     res->request = req;
