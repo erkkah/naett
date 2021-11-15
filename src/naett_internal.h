@@ -9,6 +9,7 @@
 
 #if __linux__ && !__ANDROID__
 #define __LINUX__ 1
+#include <curl/curl.h>
 #endif
 
 #if __ANDROID__
@@ -75,6 +76,9 @@ typedef struct {
 #if __ANDROID__
     pthread_t workerThread;
     int closeRequested;
+#endif
+#if __LINUX__
+    struct curl_slist* headerList;
 #endif
 } InternalResponse;
 
