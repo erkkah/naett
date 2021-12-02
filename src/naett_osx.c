@@ -5,31 +5,43 @@
 #include "naett_objc.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+
+#ifdef DEBUG
+static void _showPools(const char* context) {
+    fprintf(stderr, "NSAutoreleasePool@%s:\n", context);
+    objc_msgSend_void(class("NSAutoreleasePool"), sel("showPools"));
+}
+#define showPools(x) _showPools((x))
+#else
+#define showPools(x)
+#endif
+
+static id pool() {
+    return objc_msgSend_id(objc_alloc("NSAutoReleasePool"), sel("init"));
+}
 
 void naettPlatformInit(naettInitData initData) {
 }
 
 int naettPlatformInitRequest(InternalRequest* req) {
+    id p = pool();
+
     id urlString = objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), req->url);
     id url = objc_msgSend_t(id, id)(class("NSURL"), sel("URLWithString:"), urlString);
-    release(urlString);
 
     id request = objc_msgSend_t(id, id)(class("NSMutableURLRequest"), sel("requestWithURL:"), url);
-    release(url);
 
     objc_msgSend_t(void, double)(request, sel("setTimeoutInterval:"), (double)(req->options.timeoutMS) / 1000.0);
     id methodString =
         objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), req->options.method);
     objc_msgSend_t(void, id)(request, sel("setHTTPMethod:"), methodString);
-    release(methodString);
 
     KVLink* header = req->options.headers;
     while (header != NULL) {
         id name = objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), header->key);
         id value = objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), header->value);
         objc_msgSend_t(void, id, id)(request, sel("setValue:forHTTPHeaderField:"), name, value);
-        release(name);
-        release(value);
         header = header->next;
     }
 
@@ -46,15 +58,19 @@ int naettPlatformInitRequest(InternalRequest* req) {
         } while (bytesRead > 0);
 
         objc_msgSend_t(void, id)(request, sel("setHTTPBody:"), bodyData);
-        release(bodyData);
     }
 
+    retain(request);
     req->urlRequest = request;
+
+    release(p);
     return 1;
 }
 
 void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
     InternalResponse* res = NULL;
+    id p = pool();
+
     object_getInstanceVariable(self, "response", (void**)&res);
 
     if (res->headers == NULL) {
@@ -80,11 +96,17 @@ void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
     const void* bytes = objc_msgSend_t(const void*)(data, sel("bytes"));
     NSUInteger length = objc_msgSend_t(NSUInteger)(data, sel("length"));
     res->request->options.bodyWriter(bytes, length, res->request->options.bodyWriterData);
+
+    release(p);
 }
 
 static void didComplete(id self, SEL _sel, id session, id dataTask, id error) {
     InternalResponse* res = NULL;
     object_getInstanceVariable(self, "response", (void**)&res);
+
+    if (error != nil) {
+        res->code = naettConnectionError;
+    }
     res->complete = 1;
 }
 
@@ -100,12 +122,14 @@ static id createDelegate() {
 
     id delegate = objc_msgSend_id((id)TaskDelegateClass, sel("alloc"));
     delegate = objc_msgSend_id(delegate, sel("init"));
+    autorelease(delegate);
 
     return delegate;
 }
 
 void naettPlatformMakeRequest(InternalResponse* res) {
     InternalRequest* req = res->request;
+    id p = pool();
 
     id config = objc_msgSend_id(class("NSURLSessionConfiguration"), sel("ephemeralSessionConfiguration"));
     id delegate = createDelegate();
@@ -113,13 +137,14 @@ void naettPlatformMakeRequest(InternalResponse* res) {
     id session = objc_msgSend_t(id, id, id, id)(
         class("NSURLSession"), sel("sessionWithConfiguration:delegate:delegateQueue:"), config, delegate, nil);
 
+    retain(session);
     res->session = session;
-    release(delegate);
 
     id task = objc_msgSend_t(id, id)(session, sel("dataTaskWithRequest:"), req->urlRequest);
     object_setInstanceVariable(delegate, "response", (void*)res);
     objc_msgSend_void(task, sel("resume"));
-    release(task);
+
+    release(p);
 }
 
 void naettPlatformFreeRequest(InternalRequest* req) {
