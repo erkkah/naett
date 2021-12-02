@@ -287,6 +287,22 @@ const char* naettGetHeader(naettRes* response, const char* name) {
     return NULL;
 }
 
+void naettListHeaders(naettRes* response, naettHeaderLister lister, void* userData) {
+    InternalResponse* res = (InternalResponse*)response;
+    KVLink* node = res->headers;
+    while (node) {
+        if (!lister(node->key, node->value, userData)) {
+            return;
+        }
+        node = node->next;
+    }
+}
+
+naettReq* naettGetRequest(naettRes* response) {
+    InternalResponse* res = (InternalResponse*)response;
+    return (naettReq*) res->request;
+}
+
 int naettComplete(const naettRes* response) {
     InternalResponse* res = (InternalResponse*)response;
     return res->complete;

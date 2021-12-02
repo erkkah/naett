@@ -22,6 +22,7 @@ typedef struct naettReq naettReq;
 typedef struct naettRes naettRes;
 typedef int (*naettReadFunc)(void* dest, int bufferSize, void* userData);
 typedef int (*naettWriteFunc)(const void* source, int bytes, void* userData);
+typedef int (*naettHeaderLister)(const char* name, const char* value, void* userData);
 
 // Option to `naettRequest`
 typedef struct naettOption naettOption;
@@ -100,6 +101,17 @@ const void* naettGetBody(naettRes* response, int* outSize);
  * @brief Returns the HTTP header value for the specified header name.
  */
 const char* naettGetHeader(naettRes* response, const char* name);
+
+/**
+ * @brief Enumerates all response headers as long as the `lister`
+ * returns true.
+ */
+void naettListHeaders(naettRes* response, naettHeaderLister lister, void* userData);
+
+/**
+ * @brief Returns the request that initiated this response
+ */
+naettReq* naettGetRequest(naettRes* response);
 
 /**
  * @brief Closes a response object.
