@@ -209,6 +209,19 @@ naettOption* naettBodyWriter(naettWriteFunc writer, void* userData) {
     return (naettOption*)option;
 }
 
+void setupDefaultRW(InternalRequest* req) {
+    if (req->options.bodyReader == NULL) {
+        req->options.bodyReader = defaultBodyReader;
+        req->options.bodyReaderData = (void*) &req->options.body;
+    }
+    if (req->options.bodyReader == defaultBodyReader) {
+        req->options.body.position = 0;
+    }
+    if (req->options.bodyWriter == NULL) {
+        req->options.bodyWriter = defaultBodyWriter;
+    }
+}
+
 naettReq* naettRequest_va(const char* url, int numArgs, ...) {
     va_list args;
     InternalOption* option;
@@ -222,6 +235,8 @@ naettReq* naettRequest_va(const char* url, int numArgs, ...) {
         free(option);
     }
     va_end(args);
+
+    setupDefaultRW(req);
 
     if (naettPlatformInitRequest(req)) {
         return (naettReq*)req;
@@ -241,6 +256,8 @@ naettReq* naettRequestWithOptions(const char* url, int numOptions, const naettOp
         free(option);
     }
 
+    setupDefaultRW(req);
+
     if (naettPlatformInitRequest(req)) {
         return (naettReq*)req;
     }
@@ -254,17 +271,11 @@ naettRes* naettMake(naettReq* request) {
     InternalRequest* req = (InternalRequest*)request;
     naettAlloc(InternalResponse, res);
     res->request = req;
-    if (req->options.bodyReader == NULL) {
-        req->options.bodyReader = defaultBodyReader;
-        req->options.bodyReaderData = (void*) &req->options.body;
-    }
-    if (req->options.bodyReader == defaultBodyReader) {
-        req->options.body.position = 0;
-    }
-    if (req->options.bodyWriter == NULL) {
-        req->options.bodyWriter = defaultBodyWriter;
+
+    if (req->options.bodyWriter == defaultBodyWriter) {
         req->options.bodyWriterData = (void*) &res->body;
     }
+
     naettPlatformMakeRequest(res);
     return (naettRes*) res;
 }
