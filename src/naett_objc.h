@@ -39,7 +39,9 @@
 #define makeClass(NAME, SUPER) \
     objc_allocateClassPair((Class)objc_getClass(SUPER), NAME, 0)
 
-// Check here to get the signature right: https://nshipster.com/type-encodings/
+// Check here to get the signature right:
+// https://nshipster.com/type-encodings/
+// https://ko9.org/posts/encode-types/
 #define addMethod(CLASS, NAME, IMPL, SIGNATURE) \
     if (!class_addMethod(CLASS, sel(NAME), (IMP) (IMPL), (SIGNATURE))) assert(false)
 
