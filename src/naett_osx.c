@@ -41,7 +41,7 @@ int naettPlatformInitRequest(InternalRequest* req) {
     while (header != NULL) {
         id name = objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), header->key);
         id value = objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), header->value);
-        objc_msgSend_t(void, id, id)(request, sel("setValue:forHTTPHeaderField:"), name, value);
+        objc_msgSend_t(void, id, id)(request, sel("setValue:forHTTPHeaderField:"), value, name);
         header = header->next;
     }
 
@@ -57,7 +57,9 @@ int naettPlatformInitRequest(InternalRequest* req) {
             objc_msgSend_t(void, const void*, NSUInteger)(bodyData, sel("appendBytes:length:"), byteBuffer, bytesRead);
         } while (bytesRead > 0);
 
-        objc_msgSend_t(void, id)(request, sel("setHTTPBody:"), bodyData);
+        if (bytesRead > 0) {
+            objc_msgSend_t(void, id)(request, sel("setHTTPBody:"), bodyData);
+        }
     }
 
     retain(request);
@@ -115,6 +117,8 @@ static id createDelegate() {
 
     if (!TaskDelegateClass) {
         TaskDelegateClass = objc_allocateClassPair((Class)objc_getClass("NSObject"), "naettTaskDelegate", 0);
+        class_addProtocol(TaskDelegateClass, objc_getProtocol("NSURLSessionDataDelegate"));
+        
         addMethod(TaskDelegateClass, "URLSession:dataTask:didReceiveData:", didReceiveData, "v@:@@@");
         addMethod(TaskDelegateClass, "URLSession:task:didCompleteWithError:", didComplete, "v@:@@@");
         addIvar(TaskDelegateClass, "response", sizeof(void*), "^v");
