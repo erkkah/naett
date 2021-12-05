@@ -18,7 +18,7 @@ bundle() {
 
     echo "// Inlined $file: //" >> "$target"
     IFS=""
-    while read line; do
+    while read -r line; do
         if [[ $line =~ ^\#include\ \"(.+)\" && -f ${BASH_REMATCH[1]} ]]; then
             include=${BASH_REMATCH[1]}
             if bundle $include; then

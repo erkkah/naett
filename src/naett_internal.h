@@ -4,6 +4,7 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <winhttp.h>
 #define __WINDOWS__ 1
 #endif
 
@@ -62,6 +63,13 @@ typedef struct {
 #if __ANDROID__
     jobject urlObject;
 #endif
+#if __WINDOWS__
+    HINTERNET session;
+    HINTERNET connection;
+    HINTERNET request;
+    LPWSTR host;
+    LPWSTR resource;
+#endif
 } InternalRequest;
 
 typedef struct {
@@ -79,6 +87,10 @@ typedef struct {
 #endif
 #if __LINUX__
     struct curl_slist* headerList;
+#endif
+#if __WINDOWS__
+    char buffer[10240];
+    size_t bytesLeft;
 #endif
 } InternalResponse;
 

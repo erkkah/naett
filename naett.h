@@ -79,6 +79,8 @@ enum naettStatus {
     naettConnectionError = -1,
     naettProtocolError = -2,
     naettReadError = -3,
+    naettWriteError = -4,
+    naettGenericError = -5,
     naettProcessing = 0,
 };
 
