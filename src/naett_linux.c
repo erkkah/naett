@@ -185,6 +185,8 @@ void naettPlatformMakeRequest(InternalResponse* res) {
     curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, headerCallback);
     curl_easy_setopt(c, CURLOPT_HEADERDATA, res);
 
+    curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1);
+
     setupMethod(c, req->options.method);
 
     struct curl_slist* headerList = NULL;
