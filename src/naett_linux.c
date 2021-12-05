@@ -64,6 +64,8 @@ static void* curlWorker(void* data) {
             curl_easy_cleanup(handle);
         }
     }
+
+    return NULL;
 }
 
 void naettPlatformInit(naettInitData initData) {

@@ -19,6 +19,7 @@ typedef struct InternalParam {
                 const char* value;
             } kv;
             void* ptr;
+            void (*func)(void);
         };
 } InternalParam;
 
@@ -180,7 +181,7 @@ naettOption* naettBodyReader(naettReadFunc reader, void* userData) {
     InternalParam* readerParam = &option->params[0];
     InternalParam* dataParam = &option->params[1];
 
-    readerParam->ptr = (void*) reader;
+    readerParam->func = (void (*)(void)) reader;
     readerParam->offset = offsetof(RequestOptions, bodyReader);
     readerParam->setter = ptrSetter;
 
@@ -198,7 +199,7 @@ naettOption* naettBodyWriter(naettWriteFunc writer, void* userData) {
     InternalParam* writerParam = &option->params[0];
     InternalParam* dataParam = &option->params[1];
 
-    writerParam->ptr = (void*) writer;
+    writerParam->func = (void(*)(void)) writer;
     writerParam->offset = offsetof(RequestOptions, bodyWriter);
     writerParam->setter = ptrSetter;
 

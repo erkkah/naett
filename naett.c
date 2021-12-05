@@ -115,6 +115,7 @@ typedef struct InternalParam {
                 const char* value;
             } kv;
             void* ptr;
+            void (*func)(void);
         };
 } InternalParam;
 
@@ -276,7 +277,7 @@ naettOption* naettBodyReader(naettReadFunc reader, void* userData) {
     InternalParam* readerParam = &option->params[0];
     InternalParam* dataParam = &option->params[1];
 
-    readerParam->ptr = (void*) reader;
+    readerParam->func = (void (*)(void)) reader;
     readerParam->offset = offsetof(RequestOptions, bodyReader);
     readerParam->setter = ptrSetter;
 
@@ -294,7 +295,7 @@ naettOption* naettBodyWriter(naettWriteFunc writer, void* userData) {
     InternalParam* writerParam = &option->params[0];
     InternalParam* dataParam = &option->params[1];
 
-    writerParam->ptr = (void*) writer;
+    writerParam->func = (void(*)(void)) writer;
     writerParam->offset = offsetof(RequestOptions, bodyWriter);
     writerParam->setter = ptrSetter;
 
@@ -303,6 +304,19 @@ naettOption* naettBodyWriter(naettWriteFunc writer, void* userData) {
     dataParam->setter = ptrSetter;
 
     return (naettOption*)option;
+}
+
+void setupDefaultRW(InternalRequest* req) {
+    if (req->options.bodyReader == NULL) {
+        req->options.bodyReader = defaultBodyReader;
+        req->options.bodyReaderData = (void*) &req->options.body;
+    }
+    if (req->options.bodyReader == defaultBodyReader) {
+        req->options.body.position = 0;
+    }
+    if (req->options.bodyWriter == NULL) {
+        req->options.bodyWriter = defaultBodyWriter;
+    }
 }
 
 naettReq* naettRequest_va(const char* url, int numArgs, ...) {
@@ -318,6 +332,8 @@ naettReq* naettRequest_va(const char* url, int numArgs, ...) {
         free(option);
     }
     va_end(args);
+
+    setupDefaultRW(req);
 
     if (naettPlatformInitRequest(req)) {
         return (naettReq*)req;
@@ -337,6 +353,8 @@ naettReq* naettRequestWithOptions(const char* url, int numOptions, const naettOp
         free(option);
     }
 
+    setupDefaultRW(req);
+
     if (naettPlatformInitRequest(req)) {
         return (naettReq*)req;
     }
@@ -350,17 +368,11 @@ naettRes* naettMake(naettReq* request) {
     InternalRequest* req = (InternalRequest*)request;
     naettAlloc(InternalResponse, res);
     res->request = req;
-    if (req->options.bodyReader == NULL) {
-        req->options.bodyReader = defaultBodyReader;
-        req->options.bodyReaderData = (void*) &req->options.body;
-    }
-    if (req->options.bodyReader == defaultBodyReader) {
-        req->options.body.position = 0;
-    }
-    if (req->options.bodyWriter == NULL) {
-        req->options.bodyWriter = defaultBodyWriter;
+
+    if (req->options.bodyWriter == defaultBodyWriter) {
         req->options.bodyWriterData = (void*) &res->body;
     }
+
     naettPlatformMakeRequest(res);
     return (naettRes*) res;
 }
@@ -493,7 +505,9 @@ void naettClose(naettRes* response) {
 #define class(NAME) ((id)objc_getClass(NAME))
 #define makeClass(NAME, SUPER)     objc_allocateClassPair((Class)objc_getClass(SUPER), NAME, 0)
 
-// Check here to get the signature right: https://nshipster.com/type-encodings/
+// Check here to get the signature right:
+// https://nshipster.com/type-encodings/
+// https://ko9.org/posts/encode-types/
 #define addMethod(CLASS, NAME, IMPL, SIGNATURE)     if (!class_addMethod(CLASS, sel(NAME), (IMP) (IMPL), (SIGNATURE))) assert(false)
 
 #define addIvar(CLASS, NAME, SIZE, SIGNATURE)     if (!class_addIvar(CLASS, NAME, SIZE, rint(log2(SIZE)), SIGNATURE)) assert(false)
@@ -553,7 +567,7 @@ int naettPlatformInitRequest(InternalRequest* req) {
     while (header != NULL) {
         id name = objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), header->key);
         id value = objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), header->value);
-        objc_msgSend_t(void, id, id)(request, sel("setValue:forHTTPHeaderField:"), name, value);
+        objc_msgSend_t(void, id, id)(request, sel("setValue:forHTTPHeaderField:"), value, name);
         header = header->next;
     }
 
@@ -569,7 +583,9 @@ int naettPlatformInitRequest(InternalRequest* req) {
             objc_msgSend_t(void, const void*, NSUInteger)(bodyData, sel("appendBytes:length:"), byteBuffer, bytesRead);
         } while (bytesRead > 0);
 
-        objc_msgSend_t(void, id)(request, sel("setHTTPBody:"), bodyData);
+        if (bytesRead > 0) {
+            objc_msgSend_t(void, id)(request, sel("setHTTPBody:"), bodyData);
+        }
     }
 
     retain(request);
@@ -627,6 +643,8 @@ static id createDelegate() {
 
     if (!TaskDelegateClass) {
         TaskDelegateClass = objc_allocateClassPair((Class)objc_getClass("NSObject"), "naettTaskDelegate", 0);
+        class_addProtocol(TaskDelegateClass, objc_getProtocol("NSURLSessionDataDelegate"));
+        
         addMethod(TaskDelegateClass, "URLSession:dataTask:didReceiveData:", didReceiveData, "v@:@@@");
         addMethod(TaskDelegateClass, "URLSession:task:didCompleteWithError:", didComplete, "v@:@@@");
         addIvar(TaskDelegateClass, "response", sizeof(void*), "^v");
@@ -738,6 +756,8 @@ static void* curlWorker(void* data) {
             curl_easy_cleanup(handle);
         }
     }
+
+    return NULL;
 }
 
 void naettPlatformInit(naettInitData initData) {
