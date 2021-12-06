@@ -12,6 +12,8 @@ typedef JavaVM* naettInitData;
 typedef void* naettInitData;
 #endif
 
+#define NAETT_UA "Naett/1.0"
+
 /**
  * @brief Global init method.
  * Call to initialize the library.

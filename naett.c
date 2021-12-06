@@ -565,23 +565,32 @@ static id pool() {
 void naettPlatformInit(naettInitData initData) {
 }
 
+id NSString(const char* string) {
+    return objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), string);
+}
+
 int naettPlatformInitRequest(InternalRequest* req) {
     id p = pool();
 
-    id urlString = objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), req->url);
+    id urlString = NSString(req->url);
     id url = objc_msgSend_t(id, id)(class("NSURL"), sel("URLWithString:"), urlString);
 
     id request = objc_msgSend_t(id, id)(class("NSMutableURLRequest"), sel("requestWithURL:"), url);
 
     objc_msgSend_t(void, double)(request, sel("setTimeoutInterval:"), (double)(req->options.timeoutMS) / 1000.0);
-    id methodString =
-        objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), req->options.method);
+    id methodString = NSString(req->options.method);
     objc_msgSend_t(void, id)(request, sel("setHTTPMethod:"), methodString);
+
+    {
+        id name = NSString("User-Agent");
+        id value = NSString(NAETT_UA);
+        objc_msgSend_t(void, id, id)(request, sel("setValue:forHTTPHeaderField:"), value, name);
+    }
 
     KVLink* header = req->options.headers;
     while (header != NULL) {
-        id name = objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), header->key);
-        id value = objc_msgSend_t(id, const char*)(class("NSString"), sel("stringWithUTF8String:"), header->value);
+        id name = NSString(header->key);
+        id value = NSString(header->value);
         objc_msgSend_t(void, id, id)(request, sel("setValue:forHTTPHeaderField:"), value, name);
         header = header->next;
     }
@@ -593,12 +602,14 @@ int naettPlatformInitRequest(InternalRequest* req) {
         id bodyData =
             objc_msgSend_t(id, NSUInteger)(class("NSMutableData"), sel("dataWithCapacity:"), sizeof(byteBuffer));
 
+        int totalBytesRead = 0;
         do {
             bytesRead = req->options.bodyReader(byteBuffer, sizeof(byteBuffer), req->options.bodyReaderData);
+            totalBytesRead += bytesRead;
             objc_msgSend_t(void, const void*, NSUInteger)(bodyData, sel("appendBytes:length:"), byteBuffer, bytesRead);
         } while (bytesRead > 0);
 
-        if (bytesRead > 0) {
+        if (totalBytesRead > 0) {
             objc_msgSend_t(void, id)(request, sel("setHTTPBody:"), bodyData);
         }
     }
@@ -1004,7 +1015,6 @@ static void unpackHeaders(InternalResponse* res, LPWSTR packed) {
             node->value = strdup(split);
             node->next = res->headers;
             res->headers = node;
-            printf("Unpacked header: %s=%s\n", node->key, node->value);
         }
         free(header);
         packed += len + 1;
@@ -1133,7 +1143,6 @@ static void callback(HINTERNET request,
 
 int naettPlatformInitRequest(InternalRequest* req) {
     LPWSTR url = winFromUTF8(req->url);
-    printf("Connecting to %S\n", url);
 
     URL_COMPONENTS components;
     ZeroMemory(&components, sizeof(components));
@@ -1185,7 +1194,6 @@ int naettPlatformInitRequest(InternalRequest* req) {
 
     LPCWSTR headers = packHeaders(req);
     WinHttpAddRequestHeaders(req->request, headers, 0, WINHTTP_ADDREQ_FLAG_ADD);
-    printf("Request headers: %S\n", headers);
     free((LPWSTR)headers);
 
     return 1;
@@ -1193,7 +1201,6 @@ int naettPlatformInitRequest(InternalRequest* req) {
 
 void naettPlatformMakeRequest(InternalResponse* res) {
     if (!WinHttpSendRequest(res->request->request, WINHTTP_NO_ADDITIONAL_HEADERS, 0, NULL, 0, 0, (DWORD_PTR)res)) {
-        printf("Failed to send request\n");
         res->code = naettConnectionError;
         res->complete = 1;
     }
