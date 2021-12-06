@@ -6,7 +6,7 @@ ifeq ($(OS),Windows_NT)
 else
 	UNAME_S := $(shell uname -s)
 	ifeq ($(UNAME_S),Darwin)
-		LDFLAGS = -framework Cocoa
+		LDFLAGS = -framework Foundation
 		CFLAGS += -Wno-gnu-zero-variadic-macro-arguments
 	else ifeq ($(UNAME_S),Linux)
 		LDFLAGS = -lcurl -lpthread
