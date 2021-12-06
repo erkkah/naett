@@ -1307,7 +1307,7 @@ static jint intCall(JNIEnv* env, jobject instance, const char* method, const cha
 }
 
 void naettPlatformInit(naettInitData initData) {
-    globalVM = initData.vm;
+    globalVM = initData;
 }
 
 int naettPlatformInitRequest(InternalRequest* req) {
@@ -1440,7 +1440,7 @@ static void* processRequest(void* data) {
         if (bytesRead < 0) {
             break;
         }
-        (*env)->GetByteArrayRegion(env, buffer, 0, bytesRead, byteBuffer);
+        (*env)->GetByteArrayRegion(env, buffer, 0, bytesRead, (jbyte*) byteBuffer);
         req->options.bodyWriter(byteBuffer, bytesRead, req->options.bodyWriterData);
     } while (!res->closeRequested);
 
@@ -1454,7 +1454,7 @@ finally:
     JavaVM* vm = getVM();
     (*env)->ExceptionClear(env);
     (*vm)->DetachCurrentThread(vm);
-    res->workerThread = NULL;
+    res->workerThread = 0;
     return NULL;
 }
 
@@ -1477,10 +1477,10 @@ void naettPlatformFreeRequest(InternalRequest* req) {
 
 void naettPlatformCloseResponse(InternalResponse* res) {
     res->closeRequested = 1;
-    if (res->workerThread != NULL) {
+    if (res->workerThread != 0) {
         int joinResult = pthread_join(res->workerThread, NULL);
         if (joinResult != 0) {
-            LOGE("Failed to join: %s", strerror(res));
+            LOGE("Failed to join: %s", strerror(joinResult));
         }
     }
 }
