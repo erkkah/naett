@@ -173,6 +173,11 @@ static void kvSetter(InternalParamPtr param, InternalRequest* req) {
 
 static int defaultBodyReader(void* dest, int bufferSize, void* userData) {
     Buffer* buffer = (Buffer*) userData;
+
+    if (dest == NULL) {
+        return buffer->size;
+    }
+    
     int bytesToRead = buffer->size - buffer->position;
     if (bytesToRead > bufferSize) {
         bytesToRead = bufferSize;
@@ -905,9 +910,16 @@ void naettPlatformMakeRequest(InternalResponse* res) {
 
     curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1);
 
+    int bodySize = res->request->options.bodyReader(NULL, 0, res->request->options.bodyReaderData);
+    curl_easy_setopt(c, CURLOPT_POSTFIELDSIZE, bodySize);
+
+    curl_easy_setopt(c, CURLOPT_VERBOSE, 1);
+
     setupMethod(c, req->options.method);
 
     struct curl_slist* headerList = NULL;
+    headerList = curl_slist_append(headerList, "User-Agent: Naett/1.0");
+
     KVLink* header = req->options.headers;
     size_t bufferSize = 0;
     char* buffer = NULL;

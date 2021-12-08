@@ -22,6 +22,7 @@ void naettInit(naettInitData initThing);
 
 typedef struct naettReq naettReq;
 typedef struct naettRes naettRes;
+// If naettReadFunc is called with NULL dest, it must respond with the body size
 typedef int (*naettReadFunc)(void* dest, int bufferSize, void* userData);
 typedef int (*naettWriteFunc)(const void* source, int bytes, void* userData);
 typedef int (*naettHeaderLister)(const char* name, const char* value, void* userData);

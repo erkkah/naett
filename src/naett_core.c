@@ -65,6 +65,11 @@ static void kvSetter(InternalParamPtr param, InternalRequest* req) {
 
 static int defaultBodyReader(void* dest, int bufferSize, void* userData) {
     Buffer* buffer = (Buffer*) userData;
+
+    if (dest == NULL) {
+        return buffer->size;
+    }
+    
     int bytesToRead = buffer->size - buffer->position;
     if (bytesToRead > bufferSize) {
         bytesToRead = bufferSize;
