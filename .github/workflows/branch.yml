@@ -30,7 +30,7 @@ jobs:
 
     - name: Install libcurl
       if: startsWith(matrix.os, 'ubuntu')
-      run: apt install libcurl4-openssl-dev
+      run: sudo apt install libcurl4-openssl-dev
 
     - name: Run tests
       run: go run ./rig.go
