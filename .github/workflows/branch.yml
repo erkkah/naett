@@ -28,6 +28,10 @@ jobs:
       if: startsWith(matrix.os, 'windows')
       run: choco install mingw
 
+    - name: Install libcurl
+      if: startsWith(matrix.os, 'ubuntu')
+      run: apt install libcurl4-openssl-dev
+
     - name: Run tests
       run: go run ./rig.go
       working-directory: ./testrig
