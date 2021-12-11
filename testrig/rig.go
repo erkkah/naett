@@ -17,7 +17,7 @@ func main() {
 
 	err := build()
 	if err != nil {
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	go serve()
@@ -32,7 +32,11 @@ func main() {
 
 func build() error {
 	cmd := exec.Command("make")
-	return cmd.Run()
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("build failed: %v", output)
+	}
+	return nil
 }
 
 func runTest() error {
