@@ -913,8 +913,6 @@ void naettPlatformMakeRequest(InternalResponse* res) {
     int bodySize = res->request->options.bodyReader(NULL, 0, res->request->options.bodyReaderData);
     curl_easy_setopt(c, CURLOPT_POSTFIELDSIZE, bodySize);
 
-    curl_easy_setopt(c, CURLOPT_VERBOSE, 1);
-
     setupMethod(c, req->options.method);
 
     struct curl_slist* headerList = NULL;
