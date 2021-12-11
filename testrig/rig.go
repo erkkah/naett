@@ -34,7 +34,7 @@ func build() error {
 	cmd := exec.Command("make")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("build failed: %v", output)
+		return fmt.Errorf("build failed: %v", string(output))
 	}
 	return nil
 }
