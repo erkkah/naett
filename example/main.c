@@ -29,4 +29,7 @@ int main(int argc, char** argv) {
     const char* body = naettGetBody(res, &bodyLength);
     printf("Got a %d, %d bytes of type '%s':\n\n", naettGetStatus(res), bodyLength, naettGetHeader(res, "Content-Type"));
     printf("%.100s\n...\n", body);
+
+    naettClose(res);
+    naettFree(req);
 }

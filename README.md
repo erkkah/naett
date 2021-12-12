@@ -2,7 +2,7 @@
 
 Tiny HTTP client library in C.
 
-Wraps native HTTP client functionality on macOS, Windows, iOS and Android in a single, simple non-blocking C API.
+Wraps native HTTP client functionality on macOS, Windows, Linux, iOS and Android in a single, simple non-blocking API.
 
 ## Using `naett`
 
@@ -14,7 +14,7 @@ See `naett.h` for reference docs.
 
 ## Platform implementations
 
-`naett` uses the following HTTP client libraries on the different platforms:
+`naett` uses the following HTTP client libraries on each platform:
 
 | Platform | Library / component | Build with |
 | --- | --- | --- |
