@@ -19,22 +19,12 @@ cmake_minimum_required(VERSION 3.4.1)
 set(${CMAKE_C_FLAGS}, "${CMAKE_C_FLAGS}")
 add_library(naett STATIC ../../../../../../naett.c ../../../../../test.c)
 
-# now build app's shared lib
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11 -Wall -Werror")
-
-# Export ANativeActivity_onCreate(),
-# Refer to: https://github.com/android-ndk/ndk/issues/381.
-set(CMAKE_SHARED_LINKER_FLAGS
-    "${CMAKE_SHARED_LINKER_FLAGS} -u ANativeActivity_onCreate")
-
 add_library(native-activity SHARED naettactivity.cpp)
-
 target_include_directories(native-activity PRIVATE ../../../../../../)
 
 # add lib dependencies
 target_link_libraries(native-activity
     naett
     android
-    EGL
-    GLESv3
     log)
