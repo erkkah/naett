@@ -113,6 +113,14 @@ static void* processRequest(void* data) {
         goto finally;
     }
 
+    {
+        jstring name = (*env)->NewStringUTF(env, "User-Agent");
+        jstring value = (*env)->NewStringUTF(env, NAETT_UA);
+        voidCall(env, connection, "addRequestProperty", "(Ljava/lang/String;Ljava/lang/String;)V", name, value);
+        (*env)->DeleteLocalRef(env, name);
+        (*env)->DeleteLocalRef(env, value);
+    }
+
     KVLink* header = req->options.headers;
     while (header != NULL) {
         jstring name = (*env)->NewStringUTF(env, header->key);
@@ -150,7 +158,8 @@ static void* processRequest(void* data) {
             do {
                 bytesRead = req->options.bodyReader(byteBuffer, bufSize, req->options.bodyReaderData);
                 if (bytesRead > 0) {
-                    voidCall(env, outputStream, "write", "([B,I,I)V", buffer, 0, bytesRead);
+                    (*env)->SetByteArrayRegion(env, buffer, 0, bytesRead, (const jbyte*) byteBuffer);
+                    voidCall(env, outputStream, "write", "([BII)V", buffer, 0, bytesRead);
                 } else {
                     break;
                 }
@@ -224,9 +233,9 @@ static void* processRequest(void* data) {
     voidCall(env, inputStream, "close", "()V");
 
     res->code = statusCode;
-    res->complete = 1;
 
 finally:
+    res->complete = 1;
     (*env)->PopLocalFrame(env, NULL);
     JavaVM* vm = getVM();
     (*env)->ExceptionClear(env);
