@@ -53,11 +53,20 @@ func runTest() error {
 	return nil
 }
 
+type Handler func(w http.ResponseWriter, r *http.Request)
+
+func trace(handler Handler) Handler {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%v - %v", r.Method, r.URL)
+		handler(w, r)
+	}
+}
+
 func serve() {
-	http.HandleFunc("/get", testGETHandler)
-	http.HandleFunc("/post", testPOSTHandler)
-	http.HandleFunc("/redirect", testRedirectHandler)
-	http.HandleFunc("/redirected", redirectedHandler)
+	http.HandleFunc("/get", trace(testGETHandler))
+	http.HandleFunc("/post", trace(testPOSTHandler))
+	http.HandleFunc("/redirect", trace(testRedirectHandler))
+	http.HandleFunc("/redirected", trace(redirectedHandler))
 	log.Fatal(http.ListenAndServe(":4711", nil))
 }
 
