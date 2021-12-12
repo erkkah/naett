@@ -1,4 +1,4 @@
-name: Branch build
+name: Commandline tests
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 jobs:
 
   build:
-    name: Build
+    name: Test
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -22,7 +22,7 @@ jobs:
       id: go
 
     - name: Check out code
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
 
     - name: Install windows build helpers
       if: startsWith(matrix.os, 'windows')
