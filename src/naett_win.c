@@ -6,11 +6,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <winhttp.h>
+#include <assert.h>
 
 void naettPlatformInit(naettInitData initData) {
 }
 
-char* winToUTF8(LPWSTR source) {
+static char* winToUTF8(LPWSTR source) {
     int length = WideCharToMultiByte(CP_UTF8, 0, source, -1, NULL, 0, NULL, NULL);
     char* chars = (char*)malloc(length);
     int result = WideCharToMultiByte(CP_UTF8, 0, source, -1, chars, length, NULL, NULL);
@@ -21,7 +22,7 @@ char* winToUTF8(LPWSTR source) {
     return chars;
 }
 
-LPWSTR winFromUTF8(const char* source) {
+static LPWSTR winFromUTF8(const char* source) {
     int length = MultiByteToWideChar(CP_UTF8, 0, source, -1, NULL, 0);
     LPWSTR chars = (LPWSTR)malloc(length * sizeof(WCHAR));
     int result = MultiByteToWideChar(CP_UTF8, 0, source, -1, chars, length);
@@ -39,13 +40,19 @@ LPWSTR winFromUTF8(const char* source) {
         snprintf(*(result), len + 1, fmt, __VA_ARGS__);   \
     }
 
-LPCWSTR packHeaders(InternalRequest* req) {
+static LPWSTR wcsndup(LPCWSTR str, size_t len) {
+    LPWSTR result = calloc(1, sizeof(WCHAR) * (len + 1));
+    wcsncpy(result, str, len);
+    return result;
+}
+
+static LPCWSTR packHeaders(InternalRequest* req) {
     char* packed = strdup("");
 
     KVLink* node = req->options.headers;
     while (node != NULL) {
         char* update;
-        ASPRINTF(&update, "%s%s=%s%s", packed, node->key, node->value, node->next ? "\r\n" : "");
+        ASPRINTF(&update, "%s%s:%s%s", packed, node->key, node->value, node->next ? "\r\n" : "");
         free(packed);
         packed = update;
         node = node->next;
@@ -134,7 +141,7 @@ static void callback(HINTERNET request,
                 res->code = naettReadError;
                 res->complete = 1;
             }
-        }break;
+        } break;
 
         case WINHTTP_CALLBACK_STATUS_READ_COMPLETE: {
             size_t bytesRead = statusInfoLength;
@@ -215,8 +222,8 @@ int naettPlatformInitRequest(InternalRequest* req) {
         return 0;
     }
 
-    req->host = wcsncat(wcsdup(L""), components.lpszHostName, components.dwHostNameLength);
-    req->resource = wcsncat(wcsdup(L""), components.lpszUrlPath, components.dwUrlPathLength);
+    req->host = wcsndup(components.lpszHostName, components.dwHostNameLength);
+    req->resource = wcsndup(components.lpszUrlPath, components.dwUrlPathLength);
     free(url);
 
     req->session = WinHttpOpen(
@@ -230,7 +237,7 @@ int naettPlatformInitRequest(InternalRequest* req) {
 
     req->connection = WinHttpConnect(req->session, req->host, components.nPort, 0);
     if (!req->connection) {
-        WinHttpCloseHandle(req->session);
+        naettPlatformFreeRequest(req);
         return 0;
     }
 
@@ -244,31 +251,65 @@ int naettPlatformInitRequest(InternalRequest* req) {
         components.nScheme == INTERNET_SCHEME_HTTPS ? WINHTTP_FLAG_SECURE : 0);
     free(verb);
     if (!req->request) {
-        WinHttpCloseHandle(req->session);
-        WinHttpCloseHandle(req->connection);
+        naettPlatformFreeRequest(req);
         return 0;
     }
 
     LPCWSTR headers = packHeaders(req);
-    WinHttpAddRequestHeaders(req->request, headers, 0, WINHTTP_ADDREQ_FLAG_ADD);
+    if (headers[0] != 0) {
+        if (!WinHttpAddRequestHeaders(
+                req->request, headers, -1, WINHTTP_ADDREQ_FLAG_ADD | WINHTTP_ADDREQ_FLAG_REPLACE)) {
+            naettPlatformFreeRequest(req);
+            free((LPWSTR)headers);
+            return 0;
+        }
+    }
     free((LPWSTR)headers);
 
     return 1;
 }
 
 void naettPlatformMakeRequest(InternalResponse* res) {
-    if (!WinHttpSendRequest(res->request->request, WINHTTP_NO_ADDITIONAL_HEADERS, 0, NULL, 0, 0, (DWORD_PTR)res)) {
+    InternalRequest* req = res->request;
+
+    LPCWSTR extraHeaders = WINHTTP_NO_ADDITIONAL_HEADERS;
+    WCHAR contentLengthHeader[64];
+
+    int contentLength = req->options.bodyReader(NULL, 0, req->options.bodyReaderData);
+    if (contentLength > 0) {
+        wsprintfW(contentLengthHeader, L"Content-Length: %d", contentLength);
+        extraHeaders = contentLengthHeader;
+    }
+
+    if (!WinHttpSendRequest(req->request, extraHeaders, -1, NULL, 0, 0, (DWORD_PTR)res)) {
         res->code = naettConnectionError;
         res->complete = 1;
     }
 }
 
 void naettPlatformFreeRequest(InternalRequest* req) {
-    WinHttpCloseHandle(req->session);
-    WinHttpCloseHandle(req->connection);
-    WinHttpCloseHandle(req->request);
-    free(req->host);
-    free(req->resource);
+    assert(req != NULL);
+
+    if (req->request != NULL) {
+        WinHttpCloseHandle(req->request);
+        req->request = NULL;
+    }
+    if (req->connection != NULL) {
+        WinHttpCloseHandle(req->connection);
+        req->connection = NULL;
+    }
+    if (req->session != NULL) {
+        WinHttpCloseHandle(req->session);
+        req->session = NULL;
+    }
+    if (req->host != NULL) {
+        free(req->host);
+        req->host = NULL;
+    }
+    if (req->resource != NULL) {
+        free(req->resource);
+        req->resource = NULL;
+    }
 }
 
 void naettPlatformCloseResponse(InternalResponse* res) {
