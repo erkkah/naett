@@ -337,6 +337,8 @@ void setupDefaultRW(InternalRequest* req) {
 }
 
 naettReq* naettRequest_va(const char* url, int numArgs, ...) {
+    assert(url != NULL);
+
     va_list args;
     InternalOption* option;
     naettAlloc(InternalRequest, req);
@@ -361,6 +363,9 @@ naettReq* naettRequest_va(const char* url, int numArgs, ...) {
 }
 
 naettReq* naettRequestWithOptions(const char* url, int numOptions, const naettOption** options) {
+    assert(url != NULL);
+    assert(numOptions == 0 || options != NULL);
+
     naettAlloc(InternalRequest, req);
     initRequest(req, url);
 
@@ -382,6 +387,8 @@ naettReq* naettRequestWithOptions(const char* url, int numOptions, const naettOp
 
 naettRes* naettMake(naettReq* request) {
     assert(initialized);
+    assert(request != NULL);
+
     InternalRequest* req = (InternalRequest*)request;
     naettAlloc(InternalResponse, res);
     res->request = req;
@@ -395,12 +402,18 @@ naettRes* naettMake(naettReq* request) {
 }
 
 const void* naettGetBody(naettRes* response, int* size) {
+    assert(response != NULL);
+    assert(size != NULL);
+
     InternalResponse* res = (InternalResponse*)response;
     *size = res->body.size;
     return res->body.data;
 }
 
 const char* naettGetHeader(naettRes* response, const char* name) {
+    assert(response != NULL);
+    assert(name != NULL);
+
     InternalResponse* res = (InternalResponse*)response;
     KVLink* node = res->headers;
     while (node) {
@@ -413,6 +426,9 @@ const char* naettGetHeader(naettRes* response, const char* name) {
 }
 
 void naettListHeaders(naettRes* response, naettHeaderLister lister, void* userData) {
+    assert(response != NULL);
+    assert(lister != NULL);
+
     InternalResponse* res = (InternalResponse*)response;
     KVLink* node = res->headers;
     while (node) {
@@ -424,16 +440,19 @@ void naettListHeaders(naettRes* response, naettHeaderLister lister, void* userDa
 }
 
 naettReq* naettGetRequest(naettRes* response) {
+    assert(response != NULL);
     InternalResponse* res = (InternalResponse*)response;
     return (naettReq*) res->request;
 }
 
 int naettComplete(const naettRes* response) {
+    assert(response != NULL);
     InternalResponse* res = (InternalResponse*)response;
     return res->complete;
 }
 
 int naettGetStatus(const naettRes* response) {
+    assert(response != NULL);
     InternalResponse* res = (InternalResponse*)response;
     return res->code;
 }
@@ -449,27 +468,22 @@ static void freeKVList(KVLink* node) {
 }
 
 void naettFree(naettReq* request) {
+    assert(request != NULL);
+
     InternalRequest* req = (InternalRequest*)request;
     naettPlatformFreeRequest(req);
-    if (req->options.body.data != NULL) {
-        free(req->options.body.data);
-    }
     KVLink* node = req->options.headers;
     freeKVList(node);
-    if (req->options.body.data != NULL) {
-        free(req->options.body.data);
-    }
     free((void*)req->url);
     free(request);
 }
 
 void naettClose(naettRes* response) {
+    assert(response != NULL);
+
     InternalResponse* res = (InternalResponse*)response;
     res->request = NULL;
     naettPlatformCloseResponse(res);
-    if (res->body.data != NULL) {
-        free(res->body.data);
-    }
     KVLink* node = res->headers;
     freeKVList(node);
     free(response);
@@ -959,11 +973,12 @@ void naettPlatformCloseResponse(InternalResponse* res) {
 #include <stdio.h>
 #include <string.h>
 #include <winhttp.h>
+#include <assert.h>
 
 void naettPlatformInit(naettInitData initData) {
 }
 
-char* winToUTF8(LPWSTR source) {
+static char* winToUTF8(LPWSTR source) {
     int length = WideCharToMultiByte(CP_UTF8, 0, source, -1, NULL, 0, NULL, NULL);
     char* chars = (char*)malloc(length);
     int result = WideCharToMultiByte(CP_UTF8, 0, source, -1, chars, length, NULL, NULL);
@@ -974,7 +989,7 @@ char* winToUTF8(LPWSTR source) {
     return chars;
 }
 
-LPWSTR winFromUTF8(const char* source) {
+static LPWSTR winFromUTF8(const char* source) {
     int length = MultiByteToWideChar(CP_UTF8, 0, source, -1, NULL, 0);
     LPWSTR chars = (LPWSTR)malloc(length * sizeof(WCHAR));
     int result = MultiByteToWideChar(CP_UTF8, 0, source, -1, chars, length);
@@ -992,13 +1007,19 @@ LPWSTR winFromUTF8(const char* source) {
         snprintf(*(result), len + 1, fmt, __VA_ARGS__);   \
     }
 
-LPCWSTR packHeaders(InternalRequest* req) {
+static LPWSTR wcsndup(LPCWSTR str, size_t len) {
+    LPWSTR result = calloc(1, sizeof(WCHAR) * (len + 1));
+    wcsncpy(result, str, len);
+    return result;
+}
+
+static LPCWSTR packHeaders(InternalRequest* req) {
     char* packed = strdup("");
 
     KVLink* node = req->options.headers;
     while (node != NULL) {
         char* update;
-        ASPRINTF(&update, "%s%s=%s%s", packed, node->key, node->value, node->next ? "\r\n" : "");
+        ASPRINTF(&update, "%s%s:%s%s", packed, node->key, node->value, node->next ? "\r\n" : "");
         free(packed);
         packed = update;
         node = node->next;
@@ -1087,7 +1108,7 @@ static void callback(HINTERNET request,
                 res->code = naettReadError;
                 res->complete = 1;
             }
-        }break;
+        } break;
 
         case WINHTTP_CALLBACK_STATUS_READ_COMPLETE: {
             size_t bytesRead = statusInfoLength;
@@ -1168,8 +1189,8 @@ int naettPlatformInitRequest(InternalRequest* req) {
         return 0;
     }
 
-    req->host = wcsncat(wcsdup(L""), components.lpszHostName, components.dwHostNameLength);
-    req->resource = wcsncat(wcsdup(L""), components.lpszUrlPath, components.dwUrlPathLength);
+    req->host = wcsndup(components.lpszHostName, components.dwHostNameLength);
+    req->resource = wcsndup(components.lpszUrlPath, components.dwUrlPathLength);
     free(url);
 
     req->session = WinHttpOpen(
@@ -1183,7 +1204,7 @@ int naettPlatformInitRequest(InternalRequest* req) {
 
     req->connection = WinHttpConnect(req->session, req->host, components.nPort, 0);
     if (!req->connection) {
-        WinHttpCloseHandle(req->session);
+        naettPlatformFreeRequest(req);
         return 0;
     }
 
@@ -1197,31 +1218,65 @@ int naettPlatformInitRequest(InternalRequest* req) {
         components.nScheme == INTERNET_SCHEME_HTTPS ? WINHTTP_FLAG_SECURE : 0);
     free(verb);
     if (!req->request) {
-        WinHttpCloseHandle(req->session);
-        WinHttpCloseHandle(req->connection);
+        naettPlatformFreeRequest(req);
         return 0;
     }
 
     LPCWSTR headers = packHeaders(req);
-    WinHttpAddRequestHeaders(req->request, headers, 0, WINHTTP_ADDREQ_FLAG_ADD);
+    if (headers[0] != 0) {
+        if (!WinHttpAddRequestHeaders(
+                req->request, headers, -1, WINHTTP_ADDREQ_FLAG_ADD | WINHTTP_ADDREQ_FLAG_REPLACE)) {
+            naettPlatformFreeRequest(req);
+            free((LPWSTR)headers);
+            return 0;
+        }
+    }
     free((LPWSTR)headers);
 
     return 1;
 }
 
 void naettPlatformMakeRequest(InternalResponse* res) {
-    if (!WinHttpSendRequest(res->request->request, WINHTTP_NO_ADDITIONAL_HEADERS, 0, NULL, 0, 0, (DWORD_PTR)res)) {
+    InternalRequest* req = res->request;
+
+    LPCWSTR extraHeaders = WINHTTP_NO_ADDITIONAL_HEADERS;
+    WCHAR contentLengthHeader[64];
+
+    int contentLength = req->options.bodyReader(NULL, 0, req->options.bodyReaderData);
+    if (contentLength > 0) {
+        wsprintfW(contentLengthHeader, L"Content-Length: %d", contentLength);
+        extraHeaders = contentLengthHeader;
+    }
+
+    if (!WinHttpSendRequest(req->request, extraHeaders, -1, NULL, 0, 0, (DWORD_PTR)res)) {
         res->code = naettConnectionError;
         res->complete = 1;
     }
 }
 
 void naettPlatformFreeRequest(InternalRequest* req) {
-    WinHttpCloseHandle(req->session);
-    WinHttpCloseHandle(req->connection);
-    WinHttpCloseHandle(req->request);
-    free(req->host);
-    free(req->resource);
+    assert(req != NULL);
+
+    if (req->request != NULL) {
+        WinHttpCloseHandle(req->request);
+        req->request = NULL;
+    }
+    if (req->connection != NULL) {
+        WinHttpCloseHandle(req->connection);
+        req->connection = NULL;
+    }
+    if (req->session != NULL) {
+        WinHttpCloseHandle(req->session);
+        req->session = NULL;
+    }
+    if (req->host != NULL) {
+        free(req->host);
+        req->host = NULL;
+    }
+    if (req->resource != NULL) {
+        free(req->resource);
+        req->resource = NULL;
+    }
 }
 
 void naettPlatformCloseResponse(InternalResponse* res) {
