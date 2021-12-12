@@ -17,25 +17,18 @@ jobs:
     steps:
 
     - name: Set up Go 1.17
-      uses: actions/setup-go@v1
+      uses: actions/setup-go@v2
       with:
         go-version: 1.17
-      id: go
 
     - uses: actions/setup-java@v2
       with:
         java-version: '11'
+        distribution: 'temurin'
+        cache: 'gradle'
 
     - name: Check out code
       uses: actions/checkout@v2
-
-    - name: Gradle cache
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*') }}-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/buildSrc/**/*.kt') }}
 
     - name: AVD cache
       uses: actions/cache@v2
