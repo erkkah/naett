@@ -24,6 +24,6 @@ jobs:
     - name: Run tests
       uses: reactivecircus/android-emulator-runner@v2
       with:
-        working-directory: ./testrig
+        working-directory: ./testrig/android
         api-level: 29
-        script: (go run rig.go &) && ./gradlew connectedCheck
+        script: (go run ../rig.go &) && ./gradlew connectedCheck
