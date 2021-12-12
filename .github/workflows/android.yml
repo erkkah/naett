@@ -27,7 +27,6 @@ jobs:
       with:
         java-version: '11'
         distribution: 'temurin'
-        #cache: 'gradle'
 
     - name: AVD cache
       uses: actions/cache@v2
@@ -56,4 +55,5 @@ jobs:
         force-avd-creation: false
         emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
         disable-animations: true
-        script: (go run ../rig.go -serve &) && ./gradlew connectedCheck
+        script: ./run.sh
+
