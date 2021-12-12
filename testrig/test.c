@@ -4,43 +4,50 @@
 #include <stdio.h>
 #include <string.h>
 
+#if __ANDROID__
+#include <android/log.h>
+#define LOG(...) ((void)__android_log_print(ANDROID_LOG_INFO, "naett", __VA_ARGS__))
+#else
+#define LOG(...) printf
+#endif // __ANDROID__
 
-void fail(const char* where, const char* message) {
-    printf("%s: FAIL - %s\n", where, message);
-    fflush(stdout);
-    exit(1);
+int fail(const char* where, const char* message) {
+    LOG("%s: FAIL - %s\n", where, message);
+    return 0;
 }
 
 void trace(const char* where, const char* message) {
-    printf("%s: %s\n", where, message);
-    fflush(stdout);
+    LOG("%s: %s\n", where, message);
 }
 
-void verifyBody(naettRes* res, const char* expected) {
+int verifyBody(naettRes* res, const char* expected) {
     int bodyLength = 0;
     const char* body = naettGetBody(res, &bodyLength);
 
-    if (strlen(expected) != bodyLength) {
-        fail(__func__, "Body length does not match expected length");
+    if (body != NULL && strncmp(body, expected, bodyLength) != 0) {
+        LOG("Expected body: [\n%s\n], got body of length %d: [\n%.*s]\n", expected, bodyLength, bodyLength, body);
+        return fail(__func__, "");
     }
 
-    if (body != NULL && strncmp(body, expected, bodyLength) != 0) {
-        printf("Expected body: [\n%s\n], got: [\n%s]\n", expected, body);
-        fail(__func__, "");
+    if (strlen(expected) != bodyLength) {
+        LOG("Body length (%d) does not match expected length (%lu)", bodyLength, (unsigned long) strlen(expected));
+        return fail(__func__, "");
     }
 
     const char* lengthString = naettGetHeader(res, "Content-Length");
     if (lengthString == NULL) {
-        fail(__func__, "Expected 'Content-Length' header");
+        return fail(__func__, "Expected 'Content-Length' header");
     }
     const int expectedLength = atoi(lengthString);
     if (bodyLength != expectedLength) {
-        printf("Received body (%d) and 'Content-Length' (%d) mismatch.", bodyLength, expectedLength);
-        fail(__func__, "");
+        LOG("Received body (%d) and 'Content-Length' (%d) mismatch.", bodyLength, expectedLength);
+        return fail(__func__, "");
     }
+
+    return 1;
 }
 
-void runGETTest(const char* endpoint) {
+int runGETTest(const char* endpoint) {
     trace(__func__, "begin");
 
     char testURL[512];
@@ -48,12 +55,12 @@ void runGETTest(const char* endpoint) {
 
     naettReq* req = naettRequest(testURL, naettMethod("GET"), naettHeader("accept", "naett/testresult"));
     if (req == NULL) {
-        fail(__func__, "Failed to create request");
+        return fail(__func__, "Failed to create request");
     }
 
     naettRes* res = naettMake(req);
     if (res == NULL) {
-        fail(__func__, "Failed to make request");
+        return fail(__func__, "Failed to make request");
     }
 
     while (!naettComplete(res)) {
@@ -63,22 +70,26 @@ void runGETTest(const char* endpoint) {
     int status = naettGetStatus(res);
 
     if (status < 0) {
-        fail(__func__, "Connection failed");
+        return fail(__func__, "Connection failed");
     }
 
-    verifyBody(res, "OK");
+    if (!verifyBody(res, "OK")) {
+        return 0;
+    }
 
     if (naettGetStatus(res) != 200) {
-        fail(__func__, "Expected 200");
+        return fail(__func__, "Expected 200");
     }
 
     naettClose(res);
     naettFree(req);
 
     trace(__func__, "end");
+
+    return 1;
 }
 
-void runPOSTTest(const char* endpoint) {
+int runPOSTTest(const char* endpoint) {
     trace(__func__, "begin");
 
     char testURL[512];
@@ -86,12 +97,12 @@ void runPOSTTest(const char* endpoint) {
 
     naettReq* req = naettRequest(testURL, naettMethod("POST"), naettHeader("accept", "naett/testresult"), naettBody("TestRequest!", 12));
     if (req == NULL) {
-        fail(__func__, "Failed to create request");
+        return fail(__func__, "Failed to create request");
     }
 
     naettRes* res = naettMake(req);
     if (res == NULL) {
-        fail(__func__, "Failed to make request");
+        return fail(__func__, "Failed to make request");
     }
 
     while (!naettComplete(res)) {
@@ -99,22 +110,26 @@ void runPOSTTest(const char* endpoint) {
     }
 
     if (naettGetStatus(res) < 0) {
-        fail(__func__, "Connection failed");
+        return fail(__func__, "Connection failed");
     }
 
-    verifyBody(res, "OK");
+    if (!verifyBody(res, "OK")) {
+        return 0;
+    }
 
     if (naettGetStatus(res) != 200) {
-        fail(__func__, "Expected 200");
+        return fail(__func__, "Expected 200");
     }
 
     naettClose(res);
     naettFree(req);
 
     trace(__func__, "end");
+
+    return 1;
 }
 
-void runRedirectTest(const char* endpoint) {
+int runRedirectTest(const char* endpoint) {
     trace(__func__, "begin");
 
     char testURL[512];
@@ -123,13 +138,13 @@ void runRedirectTest(const char* endpoint) {
     trace(__func__, "Creating request");
     naettReq* req = naettRequest(testURL, naettMethod("GET"));
     if (req == NULL) {
-        fail(__func__, "Failed to create request");
+        return fail(__func__, "Failed to create request");
     }
 
     trace(__func__, "Making request");
     naettRes* res = naettMake(req);
     if (res == NULL) {
-        fail(__func__, "Failed to make request");
+        return fail(__func__, "Failed to make request");
     }
 
     trace(__func__, "Waiting for completion");
@@ -138,28 +153,40 @@ void runRedirectTest(const char* endpoint) {
     }
 
     if (naettGetStatus(res) < 0) {
-        fail(__func__, "Connection failed");
+        return fail(__func__, "Connection failed");
     }
 
     trace(__func__, "Verifying body");
-    verifyBody(res, "Redirected");
+    if (!verifyBody(res, "Redirected")) {
+        return 0;
+    }
 
     if (naettGetStatus(res) != 200) {
-        fail(__func__, "Expected 200");
+        return fail(__func__, "Expected 200");
     }
 
     naettClose(res);
     naettFree(req);
 
     trace(__func__, "end");
+
+    return 1;
 }
 
-void runTests(const char* endpoint) {
-    naettInit(NULL);
-    runGETTest(endpoint);
-    runPOSTTest(endpoint);
-    runRedirectTest(endpoint);
+int runTests(const char* endpoint) {
+    if (!runGETTest(endpoint)) {
+        return 0;
+    }
+    if (!runPOSTTest(endpoint)) {
+        return 0;
+    }
+    if (!runRedirectTest(endpoint)) {
+        return 0;
+    }
+    return 1;
 }
+
+#if INCLUDE_MAIN
 
 int main(int argc, char** argv) {
     if (argc < 2) {
@@ -170,8 +197,14 @@ int main(int argc, char** argv) {
     const char* endpoint = argv[1];
     printf("Running tests using %s\n", endpoint);
 
-    runTests(endpoint);
-    printf("All tests pass OK\n");
-    fflush(stdout);
-    return 0;
+    naettInit(NULL);
+    if (runTests(endpoint)) {
+        printf("All tests pass OK\n");
+        return 0;
+    } else {
+        printf("Tests failed!\n");
+        return 1;
+    }
 }
+
+#endif // INCLUDE_MAIN

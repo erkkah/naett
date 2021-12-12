@@ -138,10 +138,10 @@ func testPOSTHandler(w http.ResponseWriter, r *http.Request) {
 	expectedBody := "TestRequest!"
 
 	if body != expectedBody {
-		fail(w, "Unexpected body")
+		fail(w, fmt.Sprintf("Unexpected body: %v", bodyBytes))
+	} else {
+		ok(w)
 	}
-
-	ok(w)
 }
 
 func testRedirectHandler(w http.ResponseWriter, _ *http.Request) {

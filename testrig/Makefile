@@ -1,4 +1,4 @@
-CFLAGS = -I.. -g -Wall -pedantic
+CFLAGS = -I.. -g -Wall -pedantic -DINCLUDE_MAIN
 
 ifeq ($(OS),Windows_NT)
 	LDFLAGS = -lwinhttp
