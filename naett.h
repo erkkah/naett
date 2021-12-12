@@ -35,6 +35,8 @@ naettOption* naettMethod(const char* method);
 // Adds a request header.
 naettOption* naettHeader(const char* name, const char* value);
 // Sets the request body. Ignored if a body reader is configured.
+// The body is not copied, and the passed pointer must be valid for the
+// lifetime of the request.
 naettOption* naettBody(const char* body, int size);
 // Sets a request body reader.
 naettOption* naettBodyReader(naettReadFunc reader, void* userData);
