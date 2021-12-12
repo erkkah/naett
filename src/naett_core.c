@@ -229,6 +229,8 @@ void setupDefaultRW(InternalRequest* req) {
 }
 
 naettReq* naettRequest_va(const char* url, int numArgs, ...) {
+    assert(url != NULL);
+
     va_list args;
     InternalOption* option;
     naettAlloc(InternalRequest, req);
@@ -253,6 +255,9 @@ naettReq* naettRequest_va(const char* url, int numArgs, ...) {
 }
 
 naettReq* naettRequestWithOptions(const char* url, int numOptions, const naettOption** options) {
+    assert(url != NULL);
+    assert(numOptions == 0 || options != NULL);
+
     naettAlloc(InternalRequest, req);
     initRequest(req, url);
 
@@ -274,6 +279,8 @@ naettReq* naettRequestWithOptions(const char* url, int numOptions, const naettOp
 
 naettRes* naettMake(naettReq* request) {
     assert(initialized);
+    assert(request != NULL);
+
     InternalRequest* req = (InternalRequest*)request;
     naettAlloc(InternalResponse, res);
     res->request = req;
@@ -287,12 +294,18 @@ naettRes* naettMake(naettReq* request) {
 }
 
 const void* naettGetBody(naettRes* response, int* size) {
+    assert(response != NULL);
+    assert(size != NULL);
+
     InternalResponse* res = (InternalResponse*)response;
     *size = res->body.size;
     return res->body.data;
 }
 
 const char* naettGetHeader(naettRes* response, const char* name) {
+    assert(response != NULL);
+    assert(name != NULL);
+
     InternalResponse* res = (InternalResponse*)response;
     KVLink* node = res->headers;
     while (node) {
@@ -305,6 +318,9 @@ const char* naettGetHeader(naettRes* response, const char* name) {
 }
 
 void naettListHeaders(naettRes* response, naettHeaderLister lister, void* userData) {
+    assert(response != NULL);
+    assert(lister != NULL);
+
     InternalResponse* res = (InternalResponse*)response;
     KVLink* node = res->headers;
     while (node) {
@@ -316,16 +332,19 @@ void naettListHeaders(naettRes* response, naettHeaderLister lister, void* userDa
 }
 
 naettReq* naettGetRequest(naettRes* response) {
+    assert(response != NULL);
     InternalResponse* res = (InternalResponse*)response;
     return (naettReq*) res->request;
 }
 
 int naettComplete(const naettRes* response) {
+    assert(response != NULL);
     InternalResponse* res = (InternalResponse*)response;
     return res->complete;
 }
 
 int naettGetStatus(const naettRes* response) {
+    assert(response != NULL);
     InternalResponse* res = (InternalResponse*)response;
     return res->code;
 }
@@ -341,27 +360,22 @@ static void freeKVList(KVLink* node) {
 }
 
 void naettFree(naettReq* request) {
+    assert(request != NULL);
+
     InternalRequest* req = (InternalRequest*)request;
     naettPlatformFreeRequest(req);
-    if (req->options.body.data != NULL) {
-        free(req->options.body.data);
-    }
     KVLink* node = req->options.headers;
     freeKVList(node);
-    if (req->options.body.data != NULL) {
-        free(req->options.body.data);
-    }
     free((void*)req->url);
     free(request);
 }
 
 void naettClose(naettRes* response) {
+    assert(response != NULL);
+
     InternalResponse* res = (InternalResponse*)response;
     res->request = NULL;
     naettPlatformCloseResponse(res);
-    if (res->body.data != NULL) {
-        free(res->body.data);
-    }
     KVLink* node = res->headers;
     freeKVList(node);
     free(response);
