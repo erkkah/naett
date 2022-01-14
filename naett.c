@@ -34,6 +34,12 @@
 
 #define naettAlloc(TYPE, VAR) TYPE* VAR = (TYPE*)calloc(1, sizeof(TYPE))
 
+#ifdef _MSC_VER 
+    #define strncasecmp _strnicmp
+    #define strcasecmp _stricmp
+    #define min(a,b) (((a)<(b))?(a):(b))
+#endif
+
 typedef struct KVLink {
     const char* key;
     const char* value;
@@ -1008,7 +1014,7 @@ static LPWSTR winFromUTF8(const char* source) {
     }
 
 static LPWSTR wcsndup(LPCWSTR str, size_t len) {
-    LPWSTR result = calloc(1, sizeof(WCHAR) * (len + 1));
+    LPWSTR result = (LPWSTR)calloc(1, sizeof(WCHAR) * (len + 1));
     wcsncpy(result, str, len);
     return result;
 }
