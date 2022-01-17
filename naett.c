@@ -5,6 +5,11 @@
 #ifndef NAETT_INTERNAL_H
 #define NAETT_INTERNAL_H
 
+#ifdef _MSC_VER 
+    #define strcasecmp _stricmp
+    #define min(a,b) (((a)<(b))?(a):(b))
+#endif
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -1008,7 +1013,7 @@ static LPWSTR winFromUTF8(const char* source) {
     }
 
 static LPWSTR wcsndup(LPCWSTR str, size_t len) {
-    LPWSTR result = calloc(1, sizeof(WCHAR) * (len + 1));
+    LPWSTR result = (LPWSTR)calloc(1, sizeof(WCHAR) * (len + 1));
     wcsncpy(result, str, len);
     return result;
 }
