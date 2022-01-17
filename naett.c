@@ -5,6 +5,11 @@
 #ifndef NAETT_INTERNAL_H
 #define NAETT_INTERNAL_H
 
+#ifdef _MSC_VER 
+    #define strcasecmp _stricmp
+    #define min(a,b) (((a)<(b))?(a):(b))
+#endif
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -33,12 +38,6 @@
 #endif
 
 #define naettAlloc(TYPE, VAR) TYPE* VAR = (TYPE*)calloc(1, sizeof(TYPE))
-
-#ifdef _MSC_VER 
-    #define strncasecmp _strnicmp
-    #define strcasecmp _stricmp
-    #define min(a,b) (((a)<(b))?(a):(b))
-#endif
 
 typedef struct KVLink {
     const char* key;
