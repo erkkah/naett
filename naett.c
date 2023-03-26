@@ -493,6 +493,7 @@ void naettClose(naettRes* response) {
     naettPlatformCloseResponse(res);
     KVLink* node = res->headers;
     freeKVList(node);
+    free(res->body.data);
     free(response);
 }
 // End of inlined naett_core.c //
