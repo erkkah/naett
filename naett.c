@@ -1196,7 +1196,7 @@ int naettPlatformInitRequest(InternalRequest* req) {
     }
 
     req->host = wcsndup(components.lpszHostName, components.dwHostNameLength);
-    req->resource = wcsndup(components.lpszUrlPath, components.dwUrlPathLength);
+    req->resource = wcsndup(components.lpszUrlPath, components.dwUrlPathLength + components.dwExtraInfoLength);
     free(url);
 
     req->session = WinHttpOpen(
