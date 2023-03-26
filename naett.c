@@ -481,6 +481,7 @@ void naettFree(naettReq* request) {
     KVLink* node = req->options.headers;
     freeKVList(node);
     free((void*)req->url);
+    free(req->options.method);
     free(request);
 }
 
