@@ -1250,7 +1250,7 @@ void naettPlatformMakeRequest(InternalResponse* res) {
 
     int contentLength = req->options.bodyReader(NULL, 0, req->options.bodyReaderData);
     if (contentLength > 0) {
-        wsprintfW(contentLengthHeader, L"Content-Length: %d", contentLength);
+        swprintf(contentLengthHeader, L"Content-Length: %d", contentLength);
         extraHeaders = contentLengthHeader;
     }
 
