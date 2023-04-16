@@ -1210,6 +1210,9 @@ int naettPlatformInitRequest(InternalRequest* req) {
 
     WinHttpSetStatusCallback(req->session, callback, WINHTTP_CALLBACK_FLAG_ALL_COMPLETIONS, 0);
 
+    // Set the connect timeout. Leave the other three timeouts at their default values.
+    WinHttpSetTimeouts(req->session,0,req->options.timeoutMS,30000,30000);
+
     req->connection = WinHttpConnect(req->session, req->host, components.nPort, 0);
     if (!req->connection) {
         naettPlatformFreeRequest(req);
