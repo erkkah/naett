@@ -839,7 +839,7 @@ int naettPlatformInitRequest(InternalRequest* req) {
 static size_t readCallback(char* buffer, size_t size, size_t numItems, void* userData) {
     InternalResponse* res = (InternalResponse*)userData;
     InternalRequest* req = res->request;
-    return req->options.bodyReader(buffer, size, req->options.bodyReaderData);
+    return req->options.bodyReader(buffer, size * numItems, req->options.bodyReaderData);
 }
 
 static size_t writeCallback(char* ptr, size_t size, size_t numItems, void* userData) {
@@ -1498,7 +1498,6 @@ static void* processRequest(void* data) {
 
         (*env)->DeleteLocalRef(env, name);
         (*env)->DeleteLocalRef(env, value);
-        (*env)->DeleteLocalRef(env, header);
     }
 
     int statusCode = intCall(env, connection, "getResponseCode", "()I");
