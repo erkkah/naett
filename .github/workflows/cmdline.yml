@@ -15,14 +15,14 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
     steps:
 
-    - name: Set up Go 1.17
-      uses: actions/setup-go@v1
+    - name: Set up Go 1.19
+      uses: actions/setup-go@v4
       with:
-        go-version: 1.17
+        go-version: 1.19
       id: go
 
     - name: Check out code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Install windows build helpers
       if: startsWith(matrix.os, 'windows')
