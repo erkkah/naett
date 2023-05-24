@@ -223,7 +223,7 @@ int naettPlatformInitRequest(InternalRequest* req) {
     }
 
     req->host = wcsndup(components.lpszHostName, components.dwHostNameLength);
-    req->resource = wcsndup(components.lpszUrlPath, components.dwUrlPathLength);
+    req->resource = wcsndup(components.lpszUrlPath, components.dwUrlPathLength + components.dwExtraInfoLength);
     free(url);
 
     req->session = WinHttpOpen(
@@ -234,6 +234,9 @@ int naettPlatformInitRequest(InternalRequest* req) {
     }
 
     WinHttpSetStatusCallback(req->session, callback, WINHTTP_CALLBACK_FLAG_ALL_COMPLETIONS, 0);
+
+    // Set the connect timeout. Leave the other three timeouts at their default values.
+    WinHttpSetTimeouts(req->session, 0, req->options.timeoutMS, 30000, 30000);
 
     req->connection = WinHttpConnect(req->session, req->host, components.nPort, 0);
     if (!req->connection) {
@@ -277,7 +280,7 @@ void naettPlatformMakeRequest(InternalResponse* res) {
 
     int contentLength = req->options.bodyReader(NULL, 0, req->options.bodyReaderData);
     if (contentLength > 0) {
-        wsprintfW(contentLengthHeader, L"Content-Length: %d", contentLength);
+        swprintf(contentLengthHeader, 64, L"Content-Length: %d", contentLength);
         extraHeaders = contentLengthHeader;
     }
 

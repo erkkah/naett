@@ -366,6 +366,7 @@ void naettFree(naettReq* request) {
     naettPlatformFreeRequest(req);
     KVLink* node = req->options.headers;
     freeKVList(node);
+    free((void*)req->options.method);
     free((void*)req->url);
     free(request);
 }
@@ -378,5 +379,6 @@ void naettClose(naettRes* response) {
     naettPlatformCloseResponse(res);
     KVLink* node = res->headers;
     freeKVList(node);
+    free(res->body.data);
     free(response);
 }
