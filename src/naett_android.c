@@ -199,7 +199,6 @@ static void* processRequest(void* data) {
 
         (*env)->DeleteLocalRef(env, name);
         (*env)->DeleteLocalRef(env, value);
-        (*env)->DeleteLocalRef(env, header);
     }
 
     int statusCode = intCall(env, connection, "getResponseCode", "()I");
