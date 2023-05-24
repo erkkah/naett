@@ -8,6 +8,7 @@
 #ifdef _MSC_VER 
     #define strcasecmp _stricmp
     #define min(a,b) (((a)<(b))?(a):(b))
+    #define strdup _strdup
 #endif
 
 #ifdef _WIN32
@@ -479,6 +480,7 @@ void naettFree(naettReq* request) {
     naettPlatformFreeRequest(req);
     KVLink* node = req->options.headers;
     freeKVList(node);
+    free((void*)req->options.method);
     free((void*)req->url);
     free(request);
 }
@@ -491,6 +493,7 @@ void naettClose(naettRes* response) {
     naettPlatformCloseResponse(res);
     KVLink* node = res->headers;
     freeKVList(node);
+    free(res->body.data);
     free(response);
 }
 // End of inlined naett_core.c //
@@ -1013,7 +1016,7 @@ static LPWSTR winFromUTF8(const char* source) {
     }
 
 static LPWSTR wcsndup(LPCWSTR str, size_t len) {
-    LPWSTR result = (LPWSTR)calloc(1, sizeof(WCHAR) * (len + 1));
+    LPWSTR result = calloc(1, sizeof(WCHAR) * (len + 1));
     wcsncpy(result, str, len);
     return result;
 }
@@ -1195,7 +1198,7 @@ int naettPlatformInitRequest(InternalRequest* req) {
     }
 
     req->host = wcsndup(components.lpszHostName, components.dwHostNameLength);
-    req->resource = wcsndup(components.lpszUrlPath, components.dwUrlPathLength);
+    req->resource = wcsndup(components.lpszUrlPath, components.dwUrlPathLength + components.dwExtraInfoLength);
     free(url);
 
     req->session = WinHttpOpen(
@@ -1206,6 +1209,9 @@ int naettPlatformInitRequest(InternalRequest* req) {
     }
 
     WinHttpSetStatusCallback(req->session, callback, WINHTTP_CALLBACK_FLAG_ALL_COMPLETIONS, 0);
+
+    // Set the connect timeout. Leave the other three timeouts at their default values.
+    WinHttpSetTimeouts(req->session, 0, req->options.timeoutMS, 30000, 30000);
 
     req->connection = WinHttpConnect(req->session, req->host, components.nPort, 0);
     if (!req->connection) {
@@ -1249,7 +1255,7 @@ void naettPlatformMakeRequest(InternalResponse* res) {
 
     int contentLength = req->options.bodyReader(NULL, 0, req->options.bodyReaderData);
     if (contentLength > 0) {
-        wsprintfW(contentLengthHeader, L"Content-Length: %d", contentLength);
+        swprintf(contentLengthHeader, 64, L"Content-Length: %d", contentLength);
         extraHeaders = contentLengthHeader;
     }
 

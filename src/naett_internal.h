@@ -4,6 +4,7 @@
 #ifdef _MSC_VER 
     #define strcasecmp _stricmp
     #define min(a,b) (((a)<(b))?(a):(b))
+    #define strdup _strdup
 #endif
 
 #ifdef _WIN32
