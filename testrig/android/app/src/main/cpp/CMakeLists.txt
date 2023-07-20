@@ -16,7 +16,7 @@
 
 cmake_minimum_required(VERSION 3.4.1)
 
-set(${CMAKE_C_FLAGS}, "${CMAKE_C_FLAGS}")
+set(${CMAKE_C_FLAGS}, "${CMAKE_C_FLAGS} -Wall -Werror")
 add_library(naett STATIC ../../../../../../naett.c ../../../../../test.c)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11 -Wall -Werror")
