@@ -23,12 +23,6 @@
 
 static JavaVM* globalVM = NULL;
 
-JNIEXPORT
-jint JNI_OnLoad(JavaVM* vm, void* reserved) {
-    globalVM = vm;
-    return JNI_VERSION_1_2;
-}
-
 static JavaVM* getVM() {
     if (globalVM == NULL) {
         LOGE("Panic: No VM configured, exiting.");
