@@ -69,7 +69,7 @@ static int defaultBodyReader(void* dest, int bufferSize, void* userData) {
     if (dest == NULL) {
         return buffer->size;
     }
-    
+
     int bytesToRead = buffer->size - buffer->position;
     if (bytesToRead > bufferSize) {
         bytesToRead = bufferSize;
@@ -145,6 +145,18 @@ naettOption* naettHeader(const char* name, const char* value) {
     param->kv.value = value;
     param->offset = offsetof(RequestOptions, headers);
     param->setter = kvSetter;
+
+    return (naettOption*)option;
+}
+
+naettOption* naettUserAgent(const char* method) {
+    naettAlloc(InternalOption, option);
+    option->numParams = 1;
+    InternalParam* param = &option->params[0];
+
+    param->string = method;
+    param->offset = offsetof(RequestOptions, userAgent);
+    param->setter = stringSetter;
 
     return (naettOption*)option;
 }
@@ -249,7 +261,7 @@ naettReq* naettRequest_va(const char* url, int numArgs, ...) {
     if (naettPlatformInitRequest(req)) {
         return (naettReq*)req;
     }
-    
+
     naettFree((naettReq*) req);
     return NULL;
 }
@@ -272,7 +284,7 @@ naettReq* naettRequestWithOptions(const char* url, int numOptions, const naettOp
     if (naettPlatformInitRequest(req)) {
         return (naettReq*)req;
     }
-    
+
     naettFree((naettReq*) req);
     return NULL;
 }

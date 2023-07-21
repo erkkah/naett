@@ -5,7 +5,7 @@
 #ifndef NAETT_INTERNAL_H
 #define NAETT_INTERNAL_H
 
-#ifdef _MSC_VER 
+#ifdef _MSC_VER
     #define strcasecmp _stricmp
     #define min(a,b) (((a)<(b))?(a):(b))
     #define strdup _strdup
@@ -55,6 +55,7 @@ typedef struct Buffer {
 
 typedef struct {
     const char* method;
+    const char* userAgent;
     int timeoutMS;
     naettReadFunc bodyReader;
     void* bodyReaderData;
@@ -183,7 +184,7 @@ static int defaultBodyReader(void* dest, int bufferSize, void* userData) {
     if (dest == NULL) {
         return buffer->size;
     }
-    
+
     int bytesToRead = buffer->size - buffer->position;
     if (bytesToRead > bufferSize) {
         bytesToRead = bufferSize;
@@ -245,6 +246,18 @@ naettOption* naettMethod(const char* method) {
 
     param->string = method;
     param->offset = offsetof(RequestOptions, method);
+    param->setter = stringSetter;
+
+    return (naettOption*)option;
+}
+
+naettOption* naettUserAgent(const char* method) {
+    naettAlloc(InternalOption, option);
+    option->numParams = 1;
+    InternalParam* param = &option->params[0];
+
+    param->string = method;
+    param->offset = offsetof(RequestOptions, userAgent);
     param->setter = stringSetter;
 
     return (naettOption*)option;
@@ -363,7 +376,7 @@ naettReq* naettRequest_va(const char* url, int numArgs, ...) {
     if (naettPlatformInitRequest(req)) {
         return (naettReq*)req;
     }
-    
+
     naettFree((naettReq*) req);
     return NULL;
 }
@@ -386,7 +399,7 @@ naettReq* naettRequestWithOptions(const char* url, int numOptions, const naettOp
     if (naettPlatformInitRequest(req)) {
         return (naettReq*)req;
     }
-    
+
     naettFree((naettReq*) req);
     return NULL;
 }
@@ -697,7 +710,7 @@ static id createDelegate() {
     if (!TaskDelegateClass) {
         TaskDelegateClass = objc_allocateClassPair((Class)objc_getClass("NSObject"), "naettTaskDelegate", 0);
         class_addProtocol(TaskDelegateClass, objc_getProtocol("NSURLSessionDataDelegate"));
-        
+
         addMethod(TaskDelegateClass, "URLSession:dataTask:didReceiveData:", didReceiveData, "v@:@@@");
         addMethod(TaskDelegateClass, "URLSession:task:didCompleteWithError:", didComplete, "v@:@@@");
         addIvar(TaskDelegateClass, "response", sizeof(void*), "^v");

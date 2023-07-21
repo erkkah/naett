@@ -7,6 +7,7 @@
 #include <string.h>
 #include <winhttp.h>
 #include <assert.h>
+#include <tchar.h>
 
 void naettPlatformInit(naettInitData initData) {
 }
@@ -64,7 +65,7 @@ static LPCWSTR packHeaders(InternalRequest* req) {
 }
 
 static void unpackHeaders(InternalResponse* res, LPWSTR packed) {
-    int len = 0;
+    size_t len = 0;
     while ((len = wcslen(packed)) != 0) {
         char* header = winToUTF8(packed);
         char* split = strchr(header, ':');
@@ -137,7 +138,7 @@ static void callback(HINTERNET request,
             }
 
             size_t bytesToRead = min(res->bytesLeft, sizeof(res->buffer));
-            if (!WinHttpReadData(request, res->buffer, bytesToRead, NULL)) {
+            if (!WinHttpReadData(request, res->buffer, (DWORD)bytesToRead, NULL)) {
                 res->code = naettReadError;
                 res->complete = 1;
             }
@@ -147,7 +148,7 @@ static void callback(HINTERNET request,
             size_t bytesRead = statusInfoLength;
 
             InternalRequest* req = res->request;
-            if (req->options.bodyWriter(res->buffer, bytesRead, req->options.bodyWriterData) != bytesRead) {
+            if (req->options.bodyWriter(res->buffer, (int)bytesRead, req->options.bodyWriterData) != bytesRead) {
                 res->code = naettReadError;
                 res->complete = 1;
             }
@@ -155,7 +156,7 @@ static void callback(HINTERNET request,
             res->bytesLeft -= bytesRead;
             if (res->bytesLeft > 0) {
                 size_t bytesToRead = min(res->bytesLeft, sizeof(res->buffer));
-                if (!WinHttpReadData(request, res->buffer, bytesToRead, NULL)) {
+                if (!WinHttpReadData(request, res->buffer, (DWORD)bytesToRead, NULL)) {
                     res->code = naettReadError;
                     res->complete = 1;
                 }
@@ -226,8 +227,13 @@ int naettPlatformInitRequest(InternalRequest* req) {
     req->resource = wcsndup(components.lpszUrlPath, components.dwUrlPathLength + components.dwExtraInfoLength);
     free(url);
 
+    LPWSTR uaBuf = 0;
+    if (req->options.userAgent) {
+        uaBuf = winFromUTF8(req->options.userAgent);
+    }
     req->session = WinHttpOpen(
-        L"Naett/1.0", WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, WINHTTP_FLAG_ASYNC);
+        uaBuf ? uaBuf : _T(NAETT_UA), WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, WINHTTP_FLAG_ASYNC);
+    free(uaBuf);
 
     if (!req->session) {
         return 0;
