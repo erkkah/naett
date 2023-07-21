@@ -106,11 +106,18 @@ void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
             firstHeader = node;
         }
         res->headers = firstHeader;
+
+        const char *contentLength = naettGetHeader((naettRes *)res, "Content-Length");
+        if (!contentLength || sscanf(contentLength, "%d", &res->contentLength) != 1) {
+            res->contentLength = -1;
+        }
     }
 
     const void* bytes = objc_msgSend_t(const void*)(data, sel("bytes"));
     NSUInteger length = objc_msgSend_t(NSUInteger)(data, sel("length"));
+
     res->request->options.bodyWriter(bytes, length, res->request->options.bodyWriterData);
+    res->totalBytesRead += (int)length;
 
     release(p);
 }

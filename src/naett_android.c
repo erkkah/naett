@@ -198,6 +198,11 @@ static void* processRequest(void* data) {
     }
     res->headers = firstHeader;
 
+    const char *contentLength = naettGetHeader((naettRes *)res, "Content-Length");
+    if (!contentLength || sscanf(contentLength, "%d", &res->contentLength) != 1) {
+        res->contentLength = -1;
+    }
+
     int statusCode = intCall(env, connection, "getResponseCode", "()I");
 
     jobject inputStream = NULL;
@@ -221,9 +226,11 @@ static void* processRequest(void* data) {
         }
         if (bytesRead < 0) {
             break;
+        } else if (bytesRead > 0) {
+            (*env)->GetByteArrayRegion(env, buffer, 0, bytesRead, (jbyte*) byteBuffer);
+            req->options.bodyWriter(byteBuffer, bytesRead, req->options.bodyWriterData);
+            res->totalBytesRead += bytesRead;
         }
-        (*env)->GetByteArrayRegion(env, buffer, 0, bytesRead, (jbyte*) byteBuffer);
-        req->options.bodyWriter(byteBuffer, bytesRead, req->options.bodyWriterData);
     } while (!res->closeRequested);
 
     voidCall(env, inputStream, "close", "()V");

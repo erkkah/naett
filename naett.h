@@ -112,6 +112,13 @@ const void* naettGetBody(naettRes* response, int* outSize);
 const char* naettGetHeader(naettRes* response, const char* name);
 
 /**
+ * @brief Returns how many bytes have been read from the response so far,
+ * and the integer pointed to by totalSize gets the Content-Length if available,
+ * or -1 if not (or 0 if headers have not been read yet).
+ */
+int naettGetTotalBytesRead(naettRes* response, int* totalSize);
+
+/**
  * @brief Enumerates all response headers as long as the `lister`
  * returns true.
  */

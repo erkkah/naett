@@ -114,6 +114,11 @@ static void CALLBACK callback(HINTERNET request,
             unpackHeaders(res, buffer);
             free(buffer);
 
+            const char *contentLength = naettGetHeader((naettRes *)res, "Content-Length");
+            if (!contentLength || sscanf(contentLength, "%d", &res->contentLength) != 1) {
+                res->contentLength = -1;
+            }
+
             DWORD statusCode = 0;
             DWORD statusCodeSize = sizeof(statusCode);
 
@@ -154,7 +159,7 @@ static void CALLBACK callback(HINTERNET request,
                 res->code = naettReadError;
                 res->complete = 1;
             }
-
+            res->totalBytesRead += (int)bytesRead;
             res->bytesLeft -= bytesRead;
             if (res->bytesLeft > 0) {
                 size_t bytesToRead = min(res->bytesLeft, sizeof(res->buffer));

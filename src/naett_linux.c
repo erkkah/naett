@@ -48,6 +48,7 @@ static void* curlWorker(void* data) {
         int bytesRead = read(handleReadFD, newHandle.buf, sizeof(newHandle.buf) - newHandlePos);
         if (bytesRead > 0) {
             newHandlePos += bytesRead;
+            res->totalBytesRead += bytesRead;
         }
         if (newHandlePos == sizeof(newHandle.buf)) {
             curl_multi_add_handle(mc, newHandle.handle);
