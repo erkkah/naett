@@ -97,13 +97,15 @@ void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
 
         objc_msgSend_t(NSInteger, id*, id*, NSUInteger)(
             allHeaders, sel("getObjects:andKeys:count:"), headerValues, headerNames, headerCount);
+        KVLink *firstHeader = NULL;
         for (int i = 0; i < headerCount; i++) {
             naettAlloc(KVLink, node);
             node->key = strdup(objc_msgSend_t(const char*)(headerNames[i], sel("UTF8String")));
             node->value = strdup(objc_msgSend_t(const char*)(headerValues[i], sel("UTF8String")));
-            node->next = res->headers;
-            res->headers = node;
+            node->next = firstHeader;
+            firstHeader = node;
         }
+        res->headers = firstHeader;
     }
 
     const void* bytes = objc_msgSend_t(const void*)(data, sel("bytes"));
