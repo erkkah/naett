@@ -86,6 +86,8 @@ typedef struct {
     int complete;
     KVLink* headers;
     Buffer body;
+    int contentLength;  // 0 if headers not read, -1 if Content-Length missing.
+    int totalBytesRead;
 #if __APPLE__
     id session;
 #endif

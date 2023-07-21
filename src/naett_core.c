@@ -314,6 +314,15 @@ const void* naettGetBody(naettRes* response, int* size) {
     return res->body.data;
 }
 
+int naettGetTotalBytesRead(naettRes* response, int* totalSize) {
+    assert(response != NULL);
+    assert(totalSize != NULL);
+
+    InternalResponse* res = (InternalResponse*)response;
+    *totalSize = res->contentLength;
+    return res->totalBytesRead;
+}
+
 const char* naettGetHeader(naettRes* response, const char* name) {
     assert(response != NULL);
     assert(name != NULL);
