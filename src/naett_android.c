@@ -171,6 +171,7 @@ static void* processRequest(void* data) {
     jarray headers = call(env, headerSet, "toArray", "()[Ljava/lang/Object;");
     jsize headerCount = (*env)->GetArrayLength(env, headers);
 
+    KVLink *firstHeader = NULL;
     for (int i = 0; i < headerCount; i++) {
         jstring name = (*env)->GetObjectArrayElement(env, headers, i);
         if (name == NULL) {
@@ -185,8 +186,8 @@ static void* processRequest(void* data) {
         naettAlloc(KVLink, node);
         node->key = strdup(nameString);
         node->value = strdup(valueString);
-        node->next = res->headers;
-        res->headers = node;
+        node->next = firstHeader;
+        firstHeader = node;
 
         (*env)->ReleaseStringUTFChars(env, name, nameString);
         (*env)->ReleaseStringUTFChars(env, value, valueString);
@@ -195,6 +196,7 @@ static void* processRequest(void* data) {
         (*env)->DeleteLocalRef(env, value);
         (*env)->DeleteLocalRef(env, values);
     }
+    res->headers = firstHeader;
 
     int statusCode = intCall(env, connection, "getResponseCode", "()I");
 
