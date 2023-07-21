@@ -109,7 +109,7 @@ static void* processRequest(void* data) {
 
     {
         jstring name = (*env)->NewStringUTF(env, "User-Agent");
-        jstring value = (*env)->NewStringUTF(env, NAETT_UA);
+        jstring value = (*env)->NewStringUTF(env, req->options.userAgent ? req->options.userAgent : NAETT_UA);
         voidCall(env, connection, "addRequestProperty", "(Ljava/lang/String;Ljava/lang/String;)V", name, value);
         (*env)->DeleteLocalRef(env, name);
         (*env)->DeleteLocalRef(env, value);

@@ -1,14 +1,15 @@
 #ifndef NAETT_INTERNAL_H
 #define NAETT_INTERNAL_H
 
-#ifdef _MSC_VER 
+#ifdef _MSC_VER
     #define strcasecmp _stricmp
-    #define min(a,b) (((a)<(b))?(a):(b))
+    #undef strdup
     #define strdup _strdup
 #endif
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 #include <winhttp.h>
 #define __WINDOWS__ 1
@@ -51,6 +52,7 @@ typedef struct Buffer {
 
 typedef struct {
     const char* method;
+    const char* userAgent;
     int timeoutMS;
     naettReadFunc bodyReader;
     void* bodyReaderData;

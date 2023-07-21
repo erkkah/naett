@@ -42,7 +42,7 @@ int naettPlatformInitRequest(InternalRequest* req) {
 
     {
         id name = NSString("User-Agent");
-        id value = NSString(NAETT_UA);
+        id value = NSString(req->options.userAgent ? req->options.userAgent : NAETT_UA);
         objc_msgSend_t(void, id, id)(request, sel("setValue:forHTTPHeaderField:"), value, name);
     }
 
@@ -129,7 +129,7 @@ static id createDelegate() {
     if (!TaskDelegateClass) {
         TaskDelegateClass = objc_allocateClassPair((Class)objc_getClass("NSObject"), "naettTaskDelegate", 0);
         class_addProtocol(TaskDelegateClass, objc_getProtocol("NSURLSessionDataDelegate"));
-        
+
         addMethod(TaskDelegateClass, "URLSession:dataTask:didReceiveData:", didReceiveData, "v@:@@@");
         addMethod(TaskDelegateClass, "URLSession:task:didCompleteWithError:", didComplete, "v@:@@@");
         addIvar(TaskDelegateClass, "response", sizeof(void*), "^v");
