@@ -7,12 +7,13 @@
 
 #ifdef _MSC_VER
     #define strcasecmp _stricmp
-    #define min(a,b) (((a)<(b))?(a):(b))
+    #undef strdup
     #define strdup _strdup
 #endif
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 #include <winhttp.h>
 #define __WINDOWS__ 1
@@ -251,18 +252,6 @@ naettOption* naettMethod(const char* method) {
     return (naettOption*)option;
 }
 
-naettOption* naettUserAgent(const char* method) {
-    naettAlloc(InternalOption, option);
-    option->numParams = 1;
-    InternalParam* param = &option->params[0];
-
-    param->string = method;
-    param->offset = offsetof(RequestOptions, userAgent);
-    param->setter = stringSetter;
-
-    return (naettOption*)option;
-}
-
 naettOption* naettHeader(const char* name, const char* value) {
     naettAlloc(InternalOption, option);
     option->numParams = 1;
@@ -272,6 +261,18 @@ naettOption* naettHeader(const char* name, const char* value) {
     param->kv.value = value;
     param->offset = offsetof(RequestOptions, headers);
     param->setter = kvSetter;
+
+    return (naettOption*)option;
+}
+
+naettOption* naettUserAgent(const char* method) {
+    naettAlloc(InternalOption, option);
+    option->numParams = 1;
+    InternalParam* param = &option->params[0];
+
+    param->string = method;
+    param->offset = offsetof(RequestOptions, userAgent);
+    param->setter = stringSetter;
 
     return (naettOption*)option;
 }
@@ -623,7 +624,7 @@ int naettPlatformInitRequest(InternalRequest* req) {
 
     {
         id name = NSString("User-Agent");
-        id value = NSString(NAETT_UA);
+        id value = NSString(req->options.userAgent ? req->options.userAgent : NAETT_UA);
         objc_msgSend_t(void, id, id)(request, sel("setValue:forHTTPHeaderField:"), value, name);
     }
 
@@ -951,7 +952,11 @@ void naettPlatformMakeRequest(InternalResponse* res) {
     setupMethod(c, req->options.method);
 
     struct curl_slist* headerList = NULL;
-    headerList = curl_slist_append(headerList, "User-Agent: Naett/1.0");
+    char uaBuf[512];
+    if (req->options.userAgent) {
+        snprintf(uaBuf, sizeof(uaBuf), "User-Agent: %s", req->options.userAgent ? req->options.userAgent : NAETT_UA);
+    }
+    headerList = curl_slist_append(headerList, uaBuf);
 
     KVLink* header = req->options.headers;
     size_t bufferSize = 0;
@@ -995,6 +1000,7 @@ void naettPlatformCloseResponse(InternalResponse* res) {
 #include <string.h>
 #include <winhttp.h>
 #include <assert.h>
+#include <tchar.h>
 
 void naettPlatformInit(naettInitData initData) {
 }
@@ -1052,7 +1058,7 @@ static LPCWSTR packHeaders(InternalRequest* req) {
 }
 
 static void unpackHeaders(InternalResponse* res, LPWSTR packed) {
-    int len = 0;
+    size_t len = 0;
     while ((len = wcslen(packed)) != 0) {
         char* header = winToUTF8(packed);
         char* split = strchr(header, ':');
@@ -1125,7 +1131,7 @@ static void callback(HINTERNET request,
             }
 
             size_t bytesToRead = min(res->bytesLeft, sizeof(res->buffer));
-            if (!WinHttpReadData(request, res->buffer, bytesToRead, NULL)) {
+            if (!WinHttpReadData(request, res->buffer, (DWORD)bytesToRead, NULL)) {
                 res->code = naettReadError;
                 res->complete = 1;
             }
@@ -1135,7 +1141,7 @@ static void callback(HINTERNET request,
             size_t bytesRead = statusInfoLength;
 
             InternalRequest* req = res->request;
-            if (req->options.bodyWriter(res->buffer, bytesRead, req->options.bodyWriterData) != bytesRead) {
+            if (req->options.bodyWriter(res->buffer, (int)bytesRead, req->options.bodyWriterData) != bytesRead) {
                 res->code = naettReadError;
                 res->complete = 1;
             }
@@ -1143,7 +1149,7 @@ static void callback(HINTERNET request,
             res->bytesLeft -= bytesRead;
             if (res->bytesLeft > 0) {
                 size_t bytesToRead = min(res->bytesLeft, sizeof(res->buffer));
-                if (!WinHttpReadData(request, res->buffer, bytesToRead, NULL)) {
+                if (!WinHttpReadData(request, res->buffer, (DWORD)bytesToRead, NULL)) {
                     res->code = naettReadError;
                     res->complete = 1;
                 }
@@ -1214,8 +1220,13 @@ int naettPlatformInitRequest(InternalRequest* req) {
     req->resource = wcsndup(components.lpszUrlPath, components.dwUrlPathLength + components.dwExtraInfoLength);
     free(url);
 
+    LPWSTR uaBuf = 0;
+    if (req->options.userAgent) {
+        uaBuf = winFromUTF8(req->options.userAgent);
+    }
     req->session = WinHttpOpen(
-        L"Naett/1.0", WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, WINHTTP_FLAG_ASYNC);
+        uaBuf ? uaBuf : _T(NAETT_UA), WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, WINHTTP_FLAG_ASYNC);
+    free(uaBuf);
 
     if (!req->session) {
         return 0;
@@ -1421,7 +1432,7 @@ static void* processRequest(void* data) {
 
     {
         jstring name = (*env)->NewStringUTF(env, "User-Agent");
-        jstring value = (*env)->NewStringUTF(env, NAETT_UA);
+        jstring value = (*env)->NewStringUTF(env, req->options.userAgent ? req->options.userAgent : NAETT_UA);
         voidCall(env, connection, "addRequestProperty", "(Ljava/lang/String;Ljava/lang/String;)V", name, value);
         (*env)->DeleteLocalRef(env, name);
         (*env)->DeleteLocalRef(env, value);
