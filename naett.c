@@ -90,6 +90,8 @@ typedef struct {
     int complete;
     KVLink* headers;
     Buffer body;
+    int contentLength;  // 0 if headers not read, -1 if Content-Length missing.
+    int totalBytesRead;
 #if __APPLE__
     id session;
 #endif
@@ -430,6 +432,15 @@ const void* naettGetBody(naettRes* response, int* size) {
     return res->body.data;
 }
 
+int naettGetTotalBytesRead(naettRes* response, int* totalSize) {
+    assert(response != NULL);
+    assert(totalSize != NULL);
+
+    InternalResponse* res = (InternalResponse*)response;
+    *totalSize = res->contentLength;
+    return res->totalBytesRead;
+}
+
 const char* naettGetHeader(naettRes* response, const char* name) {
     assert(response != NULL);
     assert(name != NULL);
@@ -679,18 +690,27 @@ void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
 
         objc_msgSend_t(NSInteger, id*, id*, NSUInteger)(
             allHeaders, sel("getObjects:andKeys:count:"), headerValues, headerNames, headerCount);
+        KVLink *firstHeader = NULL;
         for (int i = 0; i < headerCount; i++) {
             naettAlloc(KVLink, node);
             node->key = strdup(objc_msgSend_t(const char*)(headerNames[i], sel("UTF8String")));
             node->value = strdup(objc_msgSend_t(const char*)(headerValues[i], sel("UTF8String")));
-            node->next = res->headers;
-            res->headers = node;
+            node->next = firstHeader;
+            firstHeader = node;
+        }
+        res->headers = firstHeader;
+
+        const char *contentLength = naettGetHeader((naettRes *)res, "Content-Length");
+        if (!contentLength || sscanf(contentLength, "%d", &res->contentLength) != 1) {
+            res->contentLength = -1;
         }
     }
 
     const void* bytes = objc_msgSend_t(const void*)(data, sel("bytes"));
     NSUInteger length = objc_msgSend_t(NSUInteger)(data, sel("length"));
+
     res->request->options.bodyWriter(bytes, length, res->request->options.bodyWriterData);
+    res->totalBytesRead += (int)length;
 
     release(p);
 }
@@ -807,6 +827,7 @@ static void* curlWorker(void* data) {
         int bytesRead = read(handleReadFD, newHandle.buf, sizeof(newHandle.buf) - newHandlePos);
         if (bytesRead > 0) {
             newHandlePos += bytesRead;
+            res->totalBytesRead += bytesRead;
         }
         if (newHandlePos == sizeof(newHandle.buf)) {
             curl_multi_add_handle(mc, newHandle.handle);
@@ -1057,6 +1078,7 @@ static LPCWSTR packHeaders(InternalRequest* req) {
 
 static void unpackHeaders(InternalResponse* res, LPWSTR packed) {
     size_t len = 0;
+    KVLink* firstHeader = NULL;
     while ((len = wcslen(packed)) != 0) {
         char* header = winToUTF8(packed);
         char* split = strchr(header, ':');
@@ -1069,12 +1091,13 @@ static void unpackHeaders(InternalResponse* res, LPWSTR packed) {
             naettAlloc(KVLink, node);
             node->key = strdup(header);
             node->value = strdup(split);
-            node->next = res->headers;
-            res->headers = node;
+            node->next = firstHeader;
+            firstHeader = node;
         }
         free(header);
         packed += len + 1;
     }
+    res->headers = firstHeader;
 }
 
 static void CALLBACK callback(HINTERNET request,
@@ -1102,6 +1125,11 @@ static void CALLBACK callback(HINTERNET request,
                 WINHTTP_NO_HEADER_INDEX);
             unpackHeaders(res, buffer);
             free(buffer);
+
+            const char *contentLength = naettGetHeader((naettRes *)res, "Content-Length");
+            if (!contentLength || sscanf(contentLength, "%d", &res->contentLength) != 1) {
+                res->contentLength = -1;
+            }
 
             DWORD statusCode = 0;
             DWORD statusCodeSize = sizeof(statusCode);
@@ -1143,7 +1171,7 @@ static void CALLBACK callback(HINTERNET request,
                 res->code = naettReadError;
                 res->complete = 1;
             }
-
+            res->totalBytesRead += (int)bytesRead;
             res->bytesLeft -= bytesRead;
             if (res->bytesLeft > 0) {
                 size_t bytesToRead = min(res->bytesLeft, sizeof(res->buffer));
@@ -1492,6 +1520,7 @@ static void* processRequest(void* data) {
     jarray headers = call(env, headerSet, "toArray", "()[Ljava/lang/Object;");
     jsize headerCount = (*env)->GetArrayLength(env, headers);
 
+    KVLink *firstHeader = NULL;
     for (int i = 0; i < headerCount; i++) {
         jstring name = (*env)->GetObjectArrayElement(env, headers, i);
         if (name == NULL) {
@@ -1506,8 +1535,8 @@ static void* processRequest(void* data) {
         naettAlloc(KVLink, node);
         node->key = strdup(nameString);
         node->value = strdup(valueString);
-        node->next = res->headers;
-        res->headers = node;
+        node->next = firstHeader;
+        firstHeader = node;
 
         (*env)->ReleaseStringUTFChars(env, name, nameString);
         (*env)->ReleaseStringUTFChars(env, value, valueString);
@@ -1515,6 +1544,12 @@ static void* processRequest(void* data) {
         (*env)->DeleteLocalRef(env, name);
         (*env)->DeleteLocalRef(env, value);
         (*env)->DeleteLocalRef(env, values);
+    }
+    res->headers = firstHeader;
+
+    const char *contentLength = naettGetHeader((naettRes *)res, "Content-Length");
+    if (!contentLength || sscanf(contentLength, "%d", &res->contentLength) != 1) {
+        res->contentLength = -1;
     }
 
     int statusCode = intCall(env, connection, "getResponseCode", "()I");
@@ -1540,9 +1575,11 @@ static void* processRequest(void* data) {
         }
         if (bytesRead < 0) {
             break;
+        } else if (bytesRead > 0) {
+            (*env)->GetByteArrayRegion(env, buffer, 0, bytesRead, (jbyte*) byteBuffer);
+            req->options.bodyWriter(byteBuffer, bytesRead, req->options.bodyWriterData);
+            res->totalBytesRead += bytesRead;
         }
-        (*env)->GetByteArrayRegion(env, buffer, 0, bytesRead, (jbyte*) byteBuffer);
-        req->options.bodyWriter(byteBuffer, bytesRead, req->options.bodyWriterData);
     } while (!res->closeRequested);
 
     voidCall(env, inputStream, "close", "()V");
