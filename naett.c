@@ -1077,7 +1077,7 @@ static void unpackHeaders(InternalResponse* res, LPWSTR packed) {
     }
 }
 
-static void callback(HINTERNET request,
+static void CALLBACK callback(HINTERNET request,
     DWORD_PTR context,
     DWORD status,
     LPVOID statusInformation,
