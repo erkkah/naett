@@ -12,11 +12,10 @@
 #define NOMINMAX
 #include <windows.h>
 #include <winhttp.h>
-#define __WINDOWS__ 1
+#ifndef min
+    #define min(x,y) ((x) < (y) ? (x) : (y))
 #endif
-
-#ifdef _MSC_VER
-    #define min(a,b) (((a) < (b)) ? (a) : (b))
+#define __WINDOWS__ 1
 #endif
 
 #if __linux__ && !__ANDROID__
