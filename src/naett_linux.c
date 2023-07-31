@@ -48,7 +48,6 @@ static void* curlWorker(void* data) {
         int bytesRead = read(handleReadFD, newHandle.buf, sizeof(newHandle.buf) - newHandlePos);
         if (bytesRead > 0) {
             newHandlePos += bytesRead;
-            res->totalBytesRead += bytesRead;
         }
         if (newHandlePos == sizeof(newHandle.buf)) {
             curl_multi_add_handle(mc, newHandle.handle);
@@ -101,7 +100,9 @@ static size_t readCallback(char* buffer, size_t size, size_t numItems, void* use
 static size_t writeCallback(char* ptr, size_t size, size_t numItems, void* userData) {
     InternalResponse* res = (InternalResponse*)userData;
     InternalRequest* req = res->request;
-    return req->options.bodyWriter(ptr, size * numItems, req->options.bodyWriterData);
+    size_t bytesWritten = req->options.bodyWriter(ptr, size * numItems, req->options.bodyWriterData);
+    req->totalBytesRead += bytesWritten;
+    return bytesWritten;
 }
 
 #define METHOD(A, B, C) (((A) << 16) | ((B) << 8) | (C))
