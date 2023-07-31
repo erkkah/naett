@@ -101,7 +101,7 @@ static size_t writeCallback(char* ptr, size_t size, size_t numItems, void* userD
     InternalResponse* res = (InternalResponse*)userData;
     InternalRequest* req = res->request;
     size_t bytesWritten = req->options.bodyWriter(ptr, size * numItems, req->options.bodyWriterData);
-    req->totalBytesRead += bytesWritten;
+    res->totalBytesRead += bytesWritten;
     return bytesWritten;
 }
 
