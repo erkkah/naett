@@ -265,12 +265,12 @@ naettOption* naettHeader(const char* name, const char* value) {
     return (naettOption*)option;
 }
 
-naettOption* naettUserAgent(const char* method) {
+naettOption* naettUserAgent(const char* userAgent) {
     naettAlloc(InternalOption, option);
     option->numParams = 1;
     InternalParam* param = &option->params[0];
 
-    param->string = method;
+    param->string = userAgent;
     param->offset = offsetof(RequestOptions, userAgent);
     param->setter = stringSetter;
 
@@ -953,9 +953,7 @@ void naettPlatformMakeRequest(InternalResponse* res) {
 
     struct curl_slist* headerList = NULL;
     char uaBuf[512];
-    if (req->options.userAgent) {
-        snprintf(uaBuf, sizeof(uaBuf), "User-Agent: %s", req->options.userAgent ? req->options.userAgent : NAETT_UA);
-    }
+    snprintf(uaBuf, sizeof(uaBuf), "User-Agent: %s", req->options.userAgent ? req->options.userAgent : NAETT_UA);
     headerList = curl_slist_append(headerList, uaBuf);
 
     KVLink* header = req->options.headers;
@@ -1220,7 +1218,7 @@ int naettPlatformInitRequest(InternalRequest* req) {
     req->resource = wcsndup(components.lpszUrlPath, components.dwUrlPathLength + components.dwExtraInfoLength);
     free(url);
 
-    LPWSTR uaBuf = 0;
+    LPWSTR uaBuf = NULL;
     if (req->options.userAgent) {
         uaBuf = winFromUTF8(req->options.userAgent);
     }
