@@ -16,11 +16,10 @@
 #define NOMINMAX
 #include <windows.h>
 #include <winhttp.h>
-#define __WINDOWS__ 1
+#ifndef min
+    #define min(x,y) ((x) < (y) ? (x) : (y))
 #endif
-
-#ifdef _MSC_VER
-    #define min(a,b) (((a) < (b)) ? (a) : (b))
+#define __WINDOWS__ 1
 #endif
 
 #if __linux__ && !__ANDROID__
@@ -1105,11 +1104,8 @@ static void unpackHeaders(InternalResponse* res, LPWSTR packed) {
     res->headers = firstHeader;
 }
 
-static void CALLBACK callback(HINTERNET request,
-    DWORD_PTR context,
-    DWORD status,
-    LPVOID statusInformation,
-    DWORD statusInfoLength) {
+static void CALLBACK
+callback(HINTERNET request, DWORD_PTR context, DWORD status, LPVOID statusInformation, DWORD statusInfoLength) {
     InternalResponse* res = (InternalResponse*)context;
 
     switch (status) {
@@ -1131,7 +1127,7 @@ static void CALLBACK callback(HINTERNET request,
             unpackHeaders(res, buffer);
             free(buffer);
 
-            const char *contentLength = naettGetHeader((naettRes *)res, "Content-Length");
+            const char* contentLength = naettGetHeader((naettRes*)res, "Content-Length");
             if (!contentLength || sscanf(contentLength, "%d", &res->contentLength) != 1) {
                 res->contentLength = -1;
             }
@@ -1255,8 +1251,11 @@ int naettPlatformInitRequest(InternalRequest* req) {
     if (req->options.userAgent) {
         uaBuf = winFromUTF8(req->options.userAgent);
     }
-    req->session = WinHttpOpen(
-        uaBuf ? uaBuf : _T(NAETT_UA), WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, WINHTTP_FLAG_ASYNC);
+    req->session = WinHttpOpen(uaBuf ? (LPCWSTR)uaBuf : _T(NAETT_UA),
+        WINHTTP_ACCESS_TYPE_NO_PROXY,
+        WINHTTP_NO_PROXY_NAME,
+        WINHTTP_NO_PROXY_BYPASS,
+        WINHTTP_FLAG_ASYNC);
     free(uaBuf);
 
     if (!req->session) {
