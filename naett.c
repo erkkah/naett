@@ -1251,7 +1251,7 @@ int naettPlatformInitRequest(InternalRequest* req) {
     if (req->options.userAgent) {
         uaBuf = winFromUTF8(req->options.userAgent);
     }
-    req->session = WinHttpOpen(uaBuf ? (LPCWSTR)uaBuf : _T(NAETT_UA),
+    req->session = WinHttpOpen((uaBuf ? uaBuf : _T(NAETT_UA)),
         WINHTTP_ACCESS_TYPE_NO_PROXY,
         WINHTTP_NO_PROXY_NAME,
         WINHTTP_NO_PROXY_BYPASS,
