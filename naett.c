@@ -20,7 +20,7 @@
 #endif
 
 #ifdef _MSC_VER
-	#define min(a, b) (((a) < (b)) ? (a) : (b))
+    #define min(a,b) (((a) < (b)) ? (a) : (b))
 #endif
 
 #if __linux__ && !__ANDROID__
