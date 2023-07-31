@@ -144,10 +144,7 @@ static void CALLBACK callback(HINTERNET request,
                 break;
             }
 
-            size_t bytesToRead = res->bytesLeft;
-            if (bytesToRead > sizeof(res->buffer)) {
-                bytesToRead = sizeof(res->buffer);
-            }
+            size_t bytesToRead = min(res->bytesLeft, sizeof(res->buffer));
             if (!WinHttpReadData(request, res->buffer, (DWORD)bytesToRead, NULL)) {
                 res->code = naettReadError;
                 res->complete = 1;
@@ -165,10 +162,7 @@ static void CALLBACK callback(HINTERNET request,
             res->totalBytesRead += (int)bytesRead;
             res->bytesLeft -= bytesRead;
             if (res->bytesLeft > 0) {
-                size_t bytesToRead = res->bytesLeft;
-                if (bytesToRead > sizeof(res->buffer)) {
-                    bytesToRead = sizeof(res->buffer);
-                }
+                size_t bytesToRead = min(res->bytesLeft, sizeof(res->buffer));
                 if (!WinHttpReadData(request, res->buffer, (DWORD)bytesToRead, NULL)) {
                     res->code = naettReadError;
                     res->complete = 1;
