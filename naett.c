@@ -1247,11 +1247,8 @@ int naettPlatformInitRequest(InternalRequest* req) {
     req->resource = wcsndup(components.lpszUrlPath, components.dwUrlPathLength + components.dwExtraInfoLength);
     free(url);
 
-    LPWSTR uaBuf = NULL;
-    if (req->options.userAgent) {
-        uaBuf = winFromUTF8(req->options.userAgent);
-    }
-    req->session = WinHttpOpen((uaBuf ? uaBuf : _T(NAETT_UA)),
+    LPWSTR uaBuf = winFromUTF8(req->options.userAgent ? req->options.userAgent : NAETT_UA);
+    req->session = WinHttpOpen(uaBuf,
         WINHTTP_ACCESS_TYPE_NO_PROXY,
         WINHTTP_NO_PROXY_NAME,
         WINHTTP_NO_PROXY_BYPASS,
