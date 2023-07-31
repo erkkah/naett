@@ -8,7 +8,7 @@
 #include <android/log.h>
 #define LOG(...) ((void)__android_log_print(ANDROID_LOG_INFO, "naett", __VA_ARGS__))
 #else
-#define LOG(...) printf
+#define LOG(...) printf(__VA_ARGS__)
 #endif // __ANDROID__
 
 int fail(const char* where, const char* message) {

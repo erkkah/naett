@@ -1,6 +1,7 @@
 CFLAGS = -I.. -g -Wall -pedantic -DINCLUDE_MAIN
 
 ifeq ($(OS),Windows_NT)
+	CFLAGS += -DUNICODE
 	LDFLAGS = -lwinhttp
 else
 	UNAME_S := $(shell uname -s)
