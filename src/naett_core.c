@@ -149,12 +149,12 @@ naettOption* naettHeader(const char* name, const char* value) {
     return (naettOption*)option;
 }
 
-naettOption* naettUserAgent(const char* method) {
+naettOption* naettUserAgent(const char* userAgent) {
     naettAlloc(InternalOption, option);
     option->numParams = 1;
     InternalParam* param = &option->params[0];
 
-    param->string = method;
+    param->string = userAgent;
     param->offset = offsetof(RequestOptions, userAgent);
     param->setter = stringSetter;
 

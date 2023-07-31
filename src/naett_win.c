@@ -227,7 +227,7 @@ int naettPlatformInitRequest(InternalRequest* req) {
     req->resource = wcsndup(components.lpszUrlPath, components.dwUrlPathLength + components.dwExtraInfoLength);
     free(url);
 
-    LPWSTR uaBuf = 0;
+    LPWSTR uaBuf = NULL;
     if (req->options.userAgent) {
         uaBuf = winFromUTF8(req->options.userAgent);
     }

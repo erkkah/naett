@@ -194,9 +194,7 @@ void naettPlatformMakeRequest(InternalResponse* res) {
 
     struct curl_slist* headerList = NULL;
     char uaBuf[512];
-    if (req->options.userAgent) {
-        snprintf(uaBuf, sizeof(uaBuf), "User-Agent: %s", req->options.userAgent ? req->options.userAgent : NAETT_UA);
-    }
+    snprintf(uaBuf, sizeof(uaBuf), "User-Agent: %s", req->options.userAgent ? req->options.userAgent : NAETT_UA);
     headerList = curl_slist_append(headerList, uaBuf);
 
     KVLink* header = req->options.headers;
