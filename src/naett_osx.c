@@ -17,11 +17,23 @@ static void _showPools(const char* context) {
 #define showPools(x)
 #endif
 
-static id pool() {
-    return objc_msgSend_id(objc_alloc("NSAutoReleasePool"), sel("init"));
+static id pool(void) {
+    return objc_msgSend_id(objc_alloc("NSAutoreleasePool"), sel("init"));
 }
 
+static id sessionConfiguration = nil;
+
 void naettPlatformInit(naettInitData initData) {
+    id NSThread = class("NSThread");
+    SEL isMultiThreaded = sel("isMultiThreaded");
+
+    if (!objc_msgSend_t(bool)(NSThread, isMultiThreaded)) {
+        // Make a dummy call from a new thread to kick Cocoa into multi-threaded mode
+        objc_msgSend_t(void, SEL, id, id)(
+            NSThread, sel("detachNewThreadSelector:toTarget:withObject:"), isMultiThreaded, NSThread, nil);
+    }
+
+    sessionConfiguration = objc_msgSend_id(class("NSURLSessionConfiguration"), sel("ephemeralSessionConfiguration"));
 }
 
 id NSString(const char* string) {
@@ -97,7 +109,7 @@ void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
 
         objc_msgSend_t(NSInteger, id*, id*, NSUInteger)(
             allHeaders, sel("getObjects:andKeys:count:"), headerValues, headerNames, headerCount);
-        KVLink *firstHeader = NULL;
+        KVLink* firstHeader = NULL;
         for (int i = 0; i < headerCount; i++) {
             naettAlloc(KVLink, node);
             node->key = strdup(objc_msgSend_t(const char*)(headerNames[i], sel("UTF8String")));
@@ -107,7 +119,7 @@ void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
         }
         res->headers = firstHeader;
 
-        const char *contentLength = naettGetHeader((naettRes *)res, "Content-Length");
+        const char* contentLength = naettGetHeader((naettRes*)res, "Content-Length");
         if (!contentLength || sscanf(contentLength, "%d", &res->contentLength) != 1) {
             res->contentLength = -1;
         }
@@ -125,19 +137,20 @@ void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
 static void didComplete(id self, SEL _sel, id session, id dataTask, id error) {
     InternalResponse* res = NULL;
     object_getInstanceVariable(self, "response", (void**)&res);
-
-    if (error != nil) {
-        res->code = naettConnectionError;
+    if (res != NULL) {
+        if (error != nil) {
+            res->code = naettConnectionError;
+        }
+        res->complete = 1;
     }
-    res->complete = 1;
 }
 
-static id createDelegate() {
-    Class TaskDelegateClass = nil;
+static id createDelegate(void) {
+    static Class TaskDelegateClass = nil;
 
     if (!TaskDelegateClass) {
         TaskDelegateClass = objc_allocateClassPair((Class)objc_getClass("NSObject"), "naettTaskDelegate", 0);
-        class_addProtocol(TaskDelegateClass, objc_getProtocol("NSURLSessionDataDelegate"));
+        class_addProtocol(TaskDelegateClass, (Protocol* _Nonnull)objc_getProtocol("NSURLSessionDataDelegate"));
 
         addMethod(TaskDelegateClass, "URLSession:dataTask:didReceiveData:", didReceiveData, "v@:@@@");
         addMethod(TaskDelegateClass, "URLSession:task:didCompleteWithError:", didComplete, "v@:@@@");
@@ -146,7 +159,6 @@ static id createDelegate() {
 
     id delegate = objc_msgSend_id((id)TaskDelegateClass, sel("alloc"));
     delegate = objc_msgSend_id(delegate, sel("init"));
-    autorelease(delegate);
 
     return delegate;
 }
@@ -155,17 +167,20 @@ void naettPlatformMakeRequest(InternalResponse* res) {
     InternalRequest* req = res->request;
     id p = pool();
 
-    id config = objc_msgSend_id(class("NSURLSessionConfiguration"), sel("ephemeralSessionConfiguration"));
     id delegate = createDelegate();
+    // delegate will be retained by session below
+    autorelease(delegate);
+    object_setInstanceVariable(delegate, "response", (void*)res);
 
-    id session = objc_msgSend_t(id, id, id, id)(
-        class("NSURLSession"), sel("sessionWithConfiguration:delegate:delegateQueue:"), config, delegate, nil);
+    id session = objc_msgSend_t(id, id, id, id)(class("NSURLSession"),
+        sel("sessionWithConfiguration:delegate:delegateQueue:"),
+        sessionConfiguration,
+        delegate,
+        nil);
 
-    retain(session);
     res->session = session;
 
     id task = objc_msgSend_t(id, id)(session, sel("dataTaskWithRequest:"), req->urlRequest);
-    object_setInstanceVariable(delegate, "response", (void*)res);
     objc_msgSend_void(task, sel("resume"));
 
     release(p);
@@ -177,7 +192,8 @@ void naettPlatformFreeRequest(InternalRequest* req) {
 }
 
 void naettPlatformCloseResponse(InternalResponse* res) {
-    release(res->session);
+    objc_msgSend_void(res->session, sel("invalidateAndCancel"));
+    res->session = nil;
 }
 
 #endif  // __APPLE__
