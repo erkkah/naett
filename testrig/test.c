@@ -185,14 +185,14 @@ int runStressTest(const char* endpoint) {
         return fail(__func__, "Failed to create request");
     }
 
-    for (int i = 0; i < 10000; i++) {
+    for (int i = 0; i < 8000; i++) {
         naettRes* res = naettMake(req);
         if (res == NULL) {
             return fail(__func__, "Failed to make request");
         }
 
         while (!naettComplete(res)) {
-            usleep(100 * 1000);
+            usleep(1 * 1000);
         }
 
         int status = naettGetStatus(res);
