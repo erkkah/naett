@@ -9,7 +9,7 @@
 #define LOG(...) ((void)__android_log_print(ANDROID_LOG_INFO, "naett", __VA_ARGS__))
 #else
 #define LOG(...) printf(__VA_ARGS__)
-#endif // __ANDROID__
+#endif  // __ANDROID__
 
 int fail(const char* where, const char* message) {
     LOG("%s: FAIL - %s\n", where, message);
@@ -30,7 +30,7 @@ int verifyBody(naettRes* res, const char* expected) {
     }
 
     if (strlen(expected) != bodyLength) {
-        LOG("Body length (%d) does not match expected length (%lu)", bodyLength, (unsigned long) strlen(expected));
+        LOG("Body length (%d) does not match expected length (%lu)", bodyLength, (unsigned long)strlen(expected));
         return fail(__func__, "");
     }
 
@@ -95,7 +95,8 @@ int runPOSTTest(const char* endpoint) {
     char testURL[512];
     snprintf(testURL, sizeof(testURL), "%s/post", endpoint);
 
-    naettReq* req = naettRequest(testURL, naettMethod("POST"), naettHeader("accept", "naett/testresult"), naettBody("TestRequest!", 12));
+    naettReq* req = naettRequest(
+        testURL, naettMethod("POST"), naettHeader("accept", "naett/testresult"), naettBody("TestRequest!", 12));
     if (req == NULL) {
         return fail(__func__, "Failed to create request");
     }
@@ -173,6 +174,51 @@ int runRedirectTest(const char* endpoint) {
     return 1;
 }
 
+int runStressTest(const char* endpoint) {
+    trace(__func__, "begin");
+
+    char testURL[512];
+    snprintf(testURL, sizeof(testURL), "%s/stress", endpoint);
+
+    naettReq* req = naettRequest(testURL, naettMethod("GET"), naettHeader("accept", "naett/testresult"));
+    if (req == NULL) {
+        return fail(__func__, "Failed to create request");
+    }
+
+    for (int i = 0; i < 10000; i++) {
+        naettRes* res = naettMake(req);
+        if (res == NULL) {
+            return fail(__func__, "Failed to make request");
+        }
+
+        while (!naettComplete(res)) {
+            usleep(100 * 1000);
+        }
+
+        int status = naettGetStatus(res);
+
+        if (status < 0) {
+            return fail(__func__, "Connection failed");
+        }
+
+        if (!verifyBody(res, "OK")) {
+            return 0;
+        }
+
+        if (naettGetStatus(res) != 200) {
+            return fail(__func__, "Expected 200");
+        }
+
+        naettClose(res);
+    }
+
+    naettFree(req);
+
+    trace(__func__, "end");
+
+    return 1;
+}
+
 int runTests(const char* endpoint) {
     if (!runGETTest(endpoint)) {
         return 0;
@@ -183,18 +229,21 @@ int runTests(const char* endpoint) {
     if (!runRedirectTest(endpoint)) {
         return 0;
     }
+    if (!runStressTest(endpoint)) {
+        return 0;
+    }
     return 1;
 }
 
 #if INCLUDE_MAIN
 
 int main(int argc, char** argv) {
-    if (argc < 2) {
-        printf("Expected test endpoint argument\n");
-        return 1;
+    const char* endpoint = "http://localhost:4711";
+
+    if (argc >= 2) {
+        endpoint = argv[1];
     }
 
-    const char* endpoint = argv[1];
     printf("Running tests using %s\n", endpoint);
 
     naettInit(NULL);
@@ -207,4 +256,4 @@ int main(int argc, char** argv) {
     }
 }
 
-#endif // INCLUDE_MAIN
+#endif  // INCLUDE_MAIN

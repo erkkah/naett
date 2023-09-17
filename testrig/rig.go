@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -64,6 +64,7 @@ func trace(handler Handler) Handler {
 
 func serve() {
 	http.HandleFunc("/get", trace(testGETHandler))
+	http.HandleFunc("/stress", testGETHandler)
 	http.HandleFunc("/post", trace(testPOSTHandler))
 	http.HandleFunc("/redirect", trace(testRedirectHandler))
 	http.HandleFunc("/redirected", trace(redirectedHandler))
@@ -129,7 +130,7 @@ func testPOSTHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bodyBytes, err := ioutil.ReadAll(r.Body)
+	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		fail(w, err.Error())
 	}
