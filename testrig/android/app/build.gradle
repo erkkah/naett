@@ -16,7 +16,7 @@ android {
         targetSdk 29
         externalNativeBuild {
             cmake {
-                arguments '-DANDROID_STL=c++_static', '-std=c++17'
+                arguments '-DANDROID_STL=c++_static'
             }
         }
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -36,6 +36,7 @@ android {
             packagingOptions {
                 doNotStrip '**.so'
             }
+            debuggable true
         }
     }
     externalNativeBuild {
