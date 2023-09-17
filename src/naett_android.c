@@ -48,7 +48,9 @@ static int catch (JNIEnv* env) {
 
 static jmethodID getMethod(JNIEnv* env, jobject instance, const char* method, const char* sig) {
     jclass clazz = (*env)->GetObjectClass(env, instance);
-    return (*env)->GetMethodID(env, clazz, method, sig);
+    jmethodID id = (*env)->GetMethodID(env, clazz, method, sig);
+    (*env)->DeleteLocalRef(env, clazz);
+    return id;
 }
 
 static jobject call(JNIEnv* env, jobject instance, const char* method, const char* sig, ...) {
@@ -83,14 +85,17 @@ void naettPlatformInit(naettInitData initData) {
 
 int naettPlatformInitRequest(InternalRequest* req) {
     JNIEnv* env = getEnv();
+    (*env)->PushLocalFrame(env, 10);
     jclass URL = (*env)->FindClass(env, "java/net/URL");
     jmethodID newURL = (*env)->GetMethodID(env, URL, "<init>", "(Ljava/lang/String;)V");
     jstring urlString = (*env)->NewStringUTF(env, req->url);
     jobject url = (*env)->NewObject(env, URL, newURL, urlString);
     if (catch (env)) {
+        (*env)->PopLocalFrame(env, NULL);
         return 0;
     }
     req->urlObject = (*env)->NewGlobalRef(env, url);
+    (*env)->PopLocalFrame(env, NULL);
     return 1;
 }
 
@@ -101,7 +106,7 @@ static void* processRequest(void* data) {
     InternalRequest* req = res->request;
 
     JNIEnv* env = getEnv();
-    (*env)->PushLocalFrame(env, 10);
+    (*env)->PushLocalFrame(env, 100);
 
     jobject connection = call(env, req->urlObject, "openConnection", "()Ljava/net/URLConnection;");
     if (catch (env)) {
@@ -243,7 +248,6 @@ finally:
     JavaVM* vm = getVM();
     (*env)->ExceptionClear(env);
     (*vm)->DetachCurrentThread(vm);
-    res->workerThread = 0;
     return NULL;
 }
 
