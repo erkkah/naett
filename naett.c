@@ -836,10 +836,21 @@ static void* curlWorker(void* data) {
             panic("CURL processing failure");
         }
 
-        int readyFDs = 0;
-        curl_multi_wait(mc, &readFd, 1, 1000, &readyFDs);
+        struct CURLMsg* message = curl_multi_info_read(mc, &messagesLeft);
+        if (message && message->msg == CURLMSG_DONE) {
+            CURL* handle = message->easy_handle;
+            InternalResponse* res = NULL;
+            curl_easy_getinfo(handle, CURLINFO_PRIVATE, (char**)&res);
+            curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &res->code);
+            res->complete = 1;
+            curl_easy_cleanup(handle);
+        }
 
-        if (readyFDs == 0) {
+
+        int readyFDs = 0;
+        curl_multi_wait(mc, &readFd, 1, 1, &readyFDs);
+
+        if (readyFDs == 0 && activeHandles == 0 && messagesLeft == 0) {
             usleep(100 * 1000);
         }
 
@@ -850,16 +861,6 @@ static void* curlWorker(void* data) {
         if (newHandlePos == sizeof(newHandle.buf)) {
             curl_multi_add_handle(mc, newHandle.handle);
             newHandlePos = 0;
-        }
-
-        struct CURLMsg* message = curl_multi_info_read(mc, &messagesLeft);
-        if (message && message->msg == CURLMSG_DONE) {
-            CURL* handle = message->easy_handle;
-            InternalResponse* res = NULL;
-            curl_easy_getinfo(handle, CURLINFO_PRIVATE, (char**)&res);
-            curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &res->code);
-            res->complete = 1;
-            curl_easy_cleanup(handle);
         }
     }
 
