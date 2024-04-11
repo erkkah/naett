@@ -630,6 +630,7 @@ void naettPlatformInit(naettInitData initData) {
     }
 
     sessionConfiguration = objc_msgSend_id(class("NSURLSessionConfiguration"), sel("ephemeralSessionConfiguration"));
+    retain(sessionConfiguration);
 }
 
 id NSString(const char* string) {
