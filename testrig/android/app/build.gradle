@@ -3,6 +3,8 @@ plugins {
 }
 
 android {
+    namespace "naett.test"
+
     compileSdk 29
     ndkVersion '21.0.6113669'
     compileOptions {
