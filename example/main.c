@@ -1,6 +1,13 @@
 #include "naett.h"
-#include <unistd.h>
 #include <stdio.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#define delay_ms(ms) Sleep(ms)
+#else
+#include <unistd.h>
+#define delay_ms(ms) usleep((ms) * 1000)
+#endif
 
 int main(int argc, char** argv) {
     if (argc < 2) {
@@ -14,9 +21,7 @@ int main(int argc, char** argv) {
     naettReq* req = naettRequest(URL, naettMethod("GET"), naettHeader("accept", "*/*"));
     naettRes* res = naettMake(req);
 
-    while (!naettComplete(res)) {
-        usleep(100 * 1000);
-    }
+    while (!naettComplete(res)) delay_ms(100);
 
     int status = naettGetStatus(res);
 

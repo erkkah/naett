@@ -28,8 +28,15 @@ See `naett.h` for reference docs.
 
 ```C
 #include "naett.h"
-#include <unistd.h>
 #include <stdio.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#define delay_ms(ms) Sleep(ms)
+#else
+#include <unistd.h>
+#define delay_ms(ms) usleep((ms) * 1000)
+#endif
 
 int main(int argc, char** argv) {
     naettInit(NULL);
@@ -39,9 +46,7 @@ int main(int argc, char** argv) {
 
     naettRes* res = naettMake(req);
 
-    while (!naettComplete(res)) {
-        usleep(100 * 1000);
-    }
+    while (!naettComplete(res)) delay_ms(100);
 
     if (naettGetStatus(res) < 0) {
         printf("Request failed\n");
