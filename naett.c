@@ -89,7 +89,7 @@ typedef struct {
 
 typedef struct {
     InternalRequest* request;
-    int code;
+    long code;
     int complete;
     KVLink* headers;
     Buffer body;
@@ -918,19 +918,19 @@ static void setupMethod(CURL* curl, const char* method) {
         case METHOD('G', 'E', 'T'):
         case METHOD('C', 'O', 'N'):
         case METHOD('O', 'P', 'T'):
-            curl_easy_setopt(curl, CURLOPT_HTTPGET, 1);
+            curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
             break;
         case METHOD('P', 'O', 'S'):
         case METHOD('P', 'A', 'T'):
         case METHOD('D', 'E', 'L'):
-            curl_easy_setopt(curl, CURLOPT_POST, 1);
+            curl_easy_setopt(curl, CURLOPT_POST, 1L);
             break;
         case METHOD('P', 'U', 'T'):
-            curl_easy_setopt(curl, CURLOPT_UPLOAD, 1);
+            curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
             break;
         case METHOD('H', 'E', 'A'):
         case METHOD('T', 'R', 'A'):
-            curl_easy_setopt(curl, CURLOPT_NOBODY, 1);
+            curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
             break;
     }
 
@@ -976,7 +976,7 @@ void naettPlatformMakeRequest(InternalResponse* res) {
 
     CURL* c = curl_easy_init();
     curl_easy_setopt(c, CURLOPT_URL, req->url);
-    curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT_MS, req->options.timeoutMS);
+    curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT_MS, (long)req->options.timeoutMS);
 
     curl_easy_setopt(c, CURLOPT_READFUNCTION, readCallback);
     curl_easy_setopt(c, CURLOPT_READDATA, res);
@@ -987,10 +987,10 @@ void naettPlatformMakeRequest(InternalResponse* res) {
     curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, headerCallback);
     curl_easy_setopt(c, CURLOPT_HEADERDATA, res);
 
-    curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1);
+    curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L);
 
     int bodySize = res->request->options.bodyReader(NULL, 0, res->request->options.bodyReaderData);
-    curl_easy_setopt(c, CURLOPT_POSTFIELDSIZE, bodySize);
+    curl_easy_setopt(c, CURLOPT_POSTFIELDSIZE, (long)bodySize);
 
     setupMethod(c, req->options.method);
 
