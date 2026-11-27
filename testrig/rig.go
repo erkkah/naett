@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"time"
 )
 
 func main() {
@@ -68,6 +69,7 @@ func serve() {
 	http.HandleFunc("/post", trace(testPOSTHandler))
 	http.HandleFunc("/redirect", trace(testRedirectHandler))
 	http.HandleFunc("/redirected", trace(redirectedHandler))
+	http.HandleFunc("/slow", trace(slowHandler))
 	log.Fatal(http.ListenAndServe(":4711", nil))
 }
 
@@ -152,4 +154,13 @@ func testRedirectHandler(w http.ResponseWriter, _ *http.Request) {
 
 func redirectedHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Write([]byte("Redirected"))
+}
+
+func slowHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Write([]byte("first"))
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+	time.Sleep(5 * time.Second)
+	w.Write([]byte("second"))
 }

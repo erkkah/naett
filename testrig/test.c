@@ -4,6 +4,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifndef _WIN32
+#include <pthread.h>
+#endif
+
 #if __ANDROID__
 #include <android/log.h>
 #define LOG(...) ((void)__android_log_print(ANDROID_LOG_INFO, "naett", __VA_ARGS__))
@@ -174,6 +178,164 @@ int runRedirectTest(const char* endpoint) {
     return 1;
 }
 
+int runCancelTest(const char* endpoint) {
+    trace(__func__, "begin");
+
+    char testURL[512];
+    snprintf(testURL, sizeof(testURL), "%s/slow", endpoint);
+
+    naettReq* req = naettRequest(testURL, naettMethod("GET"));
+    if (req == NULL) {
+        return fail(__func__, "Failed to create request");
+    }
+
+    naettRes* res = naettMake(req);
+    if (res == NULL) {
+        return fail(__func__, "Failed to make request");
+    }
+
+    for (int i = 0; i < 2000; i++) {
+        int totalSize = 0;
+        if (naettGetTotalBytesRead(res, &totalSize) > 0) {
+            break;
+        }
+        usleep(1 * 1000);
+    }
+
+    naettCancel(res);
+    naettCancel(res);
+
+    int completed = 0;
+    for (int i = 0; i < 2000; i++) {
+        if (naettComplete(res)) {
+            completed = 1;
+            break;
+        }
+        usleep(1 * 1000);
+    }
+
+    if (!completed) {
+        return fail(__func__, "Cancel did not complete in time");
+    }
+
+    if (naettGetStatus(res) != naettCancelled) {
+        LOG("Expected status %d, got %d\n", naettCancelled, naettGetStatus(res));
+        return fail(__func__, "Expected naettCancelled");
+    }
+
+    int bodyLength = 0;
+    naettGetBody(res, &bodyLength);
+    LOG("%s: received %d body bytes before cancel\n", __func__, bodyLength);
+
+    naettClose(res);
+    naettFree(req);
+
+    trace(__func__, "end");
+
+    return 1;
+}
+
+int runCancelAfterCompleteTest(const char* endpoint) {
+    trace(__func__, "begin");
+
+    char testURL[512];
+    snprintf(testURL, sizeof(testURL), "%s/get", endpoint);
+
+    naettReq* req = naettRequest(testURL, naettMethod("GET"), naettHeader("accept", "naett/testresult"));
+    if (req == NULL) {
+        return fail(__func__, "Failed to create request");
+    }
+
+    naettRes* res = naettMake(req);
+    if (res == NULL) {
+        return fail(__func__, "Failed to make request");
+    }
+
+    while (!naettComplete(res)) {
+        usleep(100 * 1000);
+    }
+
+    int status = naettGetStatus(res);
+    naettCancel(res);
+    if (naettGetStatus(res) != status) {
+        LOG("Status changed from %d to %d\n", status, naettGetStatus(res));
+        return fail(__func__, "Cancel after completion changed the status");
+    }
+
+    naettClose(res);
+    naettFree(req);
+
+    trace(__func__, "end");
+
+    return 1;
+}
+
+#ifndef _WIN32
+
+static void* cancelThread(void* data) {
+    naettCancel((naettRes*)data);
+    return NULL;
+}
+
+int runCancelThreadTest(const char* endpoint) {
+    trace(__func__, "begin");
+
+    char testURL[512];
+    snprintf(testURL, sizeof(testURL), "%s/slow", endpoint);
+
+    naettReq* req = naettRequest(testURL, naettMethod("GET"));
+    if (req == NULL) {
+        return fail(__func__, "Failed to create request");
+    }
+
+    naettRes* res = naettMake(req);
+    if (res == NULL) {
+        return fail(__func__, "Failed to make request");
+    }
+
+    for (int i = 0; i < 2000; i++) {
+        int totalSize = 0;
+        if (naettGetTotalBytesRead(res, &totalSize) > 0) {
+            break;
+        }
+        usleep(1 * 1000);
+    }
+
+    pthread_t thread;
+    if (pthread_create(&thread, NULL, cancelThread, res) != 0) {
+        return fail(__func__, "Failed to start cancel thread");
+    }
+
+    int completed = 0;
+    for (int i = 0; i < 2000; i++) {
+        if (naettComplete(res)) {
+            completed = 1;
+            break;
+        }
+        usleep(1 * 1000);
+    }
+
+    pthread_join(thread, NULL);
+
+    if (!completed) {
+        return fail(__func__, "Cancel did not complete in time");
+    }
+
+    if (naettGetStatus(res) != naettCancelled) {
+        LOG("Expected status %d, got %d\n", naettCancelled, naettGetStatus(res));
+        return fail(__func__, "Expected naettCancelled");
+    }
+
+    naettClose(res);
+    naettFree(req);
+
+    trace(__func__, "end");
+
+    return 1;
+}
+
+#endif  // _WIN32
+
 int runStressTest(const char* endpoint) {
     trace(__func__, "begin");
 
@@ -229,6 +391,17 @@ int runTests(const char* endpoint) {
     if (!runRedirectTest(endpoint)) {
         return 0;
     }
+    if (!runCancelTest(endpoint)) {
+        return 0;
+    }
+    if (!runCancelAfterCompleteTest(endpoint)) {
+        return 0;
+    }
+#ifndef _WIN32
+    if (!runCancelThreadTest(endpoint)) {
+        return 0;
+    }
+#endif
     if (!runStressTest(endpoint)) {
         return 0;
     }

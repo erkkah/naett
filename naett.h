@@ -70,6 +70,13 @@ naettReq* naettRequestWithOptions(const char* url, int numOptions, const naettOp
 naettRes* naettMake(naettReq* request);
 
 /**
+ * @brief Cancels an in-flight response.
+ * May be called from any thread. Once `naettComplete` returns 1,
+ * `naettGetStatus` reports `naettCancelled`.
+ */
+void naettCancel(naettRes* response);
+
+/**
  * @brief Frees a previously allocated request object.
  * The request must not have any pending responses.
  */
@@ -88,6 +95,7 @@ enum naettStatus {
     naettReadError = -3,
     naettWriteError = -4,
     naettGenericError = -5,
+    naettCancelled = -6,
     naettProcessing = 0,
 };
 
