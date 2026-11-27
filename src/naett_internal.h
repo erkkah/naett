@@ -1,6 +1,10 @@
 #ifndef NAETT_INTERNAL_H
 #define NAETT_INTERNAL_H
 
+#include <stdatomic.h>
+#include <stdbool.h>
+#include <stdint.h>
+
 #ifdef _MSC_VER
     #define strcasecmp _stricmp
     #undef strdup
@@ -91,12 +95,15 @@ typedef struct {
     Buffer body;
     int contentLength;  // 0 if headers not read, -1 if Content-Length missing.
     int totalBytesRead;
+    atomic_bool cancelled;
 #if __APPLE__
     id session;
+    id task;
 #endif
 #if __ANDROID__
     pthread_t workerThread;
     int closeRequested;
+    atomic_uintptr_t connection;
 #endif
 #if __LINUX__
     struct curl_slist* headerList;
@@ -104,12 +111,14 @@ typedef struct {
 #if __WINDOWS__
     char buffer[10240];
     size_t bytesLeft;
+    HINTERNET hRequest;
 #endif
 } InternalResponse;
 
 void naettPlatformInit(naettInitData initData);
 int naettPlatformInitRequest(InternalRequest* req);
 void naettPlatformMakeRequest(InternalResponse* res);
+void naettPlatformCancel(InternalResponse* res);
 void naettPlatformFreeRequest(InternalRequest* req);
 void naettPlatformCloseResponse(InternalResponse* res);
 

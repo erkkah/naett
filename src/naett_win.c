@@ -88,6 +88,10 @@ static void unpackHeaders(InternalResponse* res, LPWSTR packed) {
     res->headers = firstHeader;
 }
 
+static int failureCode(InternalResponse* res, int fallback) {
+    return atomic_load(&res->cancelled) ? naettCancelled : fallback;
+}
+
 static void CALLBACK
 callback(HINTERNET request, DWORD_PTR context, DWORD status, LPVOID statusInformation, DWORD statusInfoLength) {
     InternalResponse* res = (InternalResponse*)context;
@@ -128,7 +132,7 @@ callback(HINTERNET request, DWORD_PTR context, DWORD status, LPVOID statusInform
             res->code = statusCode;
 
             if (!WinHttpQueryDataAvailable(request, NULL)) {
-                res->code = naettProtocolError;
+                res->code = failureCode(res, naettProtocolError);
                 res->complete = 1;
             }
         } break;
@@ -143,7 +147,7 @@ callback(HINTERNET request, DWORD_PTR context, DWORD status, LPVOID statusInform
 
             size_t bytesToRead = min(res->bytesLeft, sizeof(res->buffer));
             if (!WinHttpReadData(request, res->buffer, (DWORD)bytesToRead, NULL)) {
-                res->code = naettReadError;
+                res->code = failureCode(res, naettReadError);
                 res->complete = 1;
             }
         } break;
@@ -153,7 +157,7 @@ callback(HINTERNET request, DWORD_PTR context, DWORD status, LPVOID statusInform
 
             InternalRequest* req = res->request;
             if (req->options.bodyWriter(res->buffer, (int)bytesRead, req->options.bodyWriterData) != bytesRead) {
-                res->code = naettReadError;
+                res->code = failureCode(res, naettReadError);
                 res->complete = 1;
             }
             res->totalBytesRead += (int)bytesRead;
@@ -161,12 +165,12 @@ callback(HINTERNET request, DWORD_PTR context, DWORD status, LPVOID statusInform
             if (res->bytesLeft > 0) {
                 size_t bytesToRead = min(res->bytesLeft, sizeof(res->buffer));
                 if (!WinHttpReadData(request, res->buffer, (DWORD)bytesToRead, NULL)) {
-                    res->code = naettReadError;
+                    res->code = failureCode(res, naettReadError);
                     res->complete = 1;
                 }
             } else {
                 if (!WinHttpQueryDataAvailable(request, NULL)) {
-                    res->code = naettProtocolError;
+                    res->code = failureCode(res, naettProtocolError);
                     res->complete = 1;
                 }
             }
@@ -180,7 +184,7 @@ callback(HINTERNET request, DWORD_PTR context, DWORD status, LPVOID statusInform
                 WinHttpWriteData(request, res->buffer, bytesRead, NULL);
             } else {
                 if (!WinHttpReceiveResponse(request, NULL)) {
-                    res->code = naettReadError;
+                    res->code = failureCode(res, naettReadError);
                     res->complete = 1;
                 }
             }
@@ -193,16 +197,16 @@ callback(HINTERNET request, DWORD_PTR context, DWORD status, LPVOID statusInform
                 case API_RECEIVE_RESPONSE:
                 case API_QUERY_DATA_AVAILABLE:
                 case API_READ_DATA:
-                    res->code = naettReadError;
+                    res->code = failureCode(res, naettReadError);
                     break;
                 case API_WRITE_DATA:
-                    res->code = naettWriteError;
+                    res->code = failureCode(res, naettWriteError);
                     break;
                 case API_SEND_REQUEST:
-                    res->code = naettConnectionError;
+                    res->code = failureCode(res, naettConnectionError);
                     break;
                 default:
-                    res->code = naettGenericError;
+                    res->code = failureCode(res, naettGenericError);
             }
 
             res->complete = 1;
@@ -284,6 +288,7 @@ int naettPlatformInitRequest(InternalRequest* req) {
 
 void naettPlatformMakeRequest(InternalResponse* res) {
     InternalRequest* req = res->request;
+    res->hRequest = req->request;
 
     LPCWSTR extraHeaders = WINHTTP_NO_ADDITIONAL_HEADERS;
     WCHAR contentLengthHeader[64];
@@ -298,6 +303,16 @@ void naettPlatformMakeRequest(InternalResponse* res) {
         res->code = naettConnectionError;
         res->complete = 1;
     }
+}
+
+void naettPlatformCancel(InternalResponse* res) {
+    HINTERNET h = (HINTERNET)InterlockedExchangePointer((PVOID volatile*)&res->hRequest, NULL);
+    if (!h) {
+        return;
+    }
+
+    WinHttpCloseHandle(h);
+    InterlockedExchangePointer((PVOID volatile*)&res->request->request, NULL);
 }
 
 void naettPlatformFreeRequest(InternalRequest* req) {

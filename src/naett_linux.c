@@ -43,7 +43,11 @@ static void* curlWorker(void* data) {
             CURL* handle = message->easy_handle;
             InternalResponse* res = NULL;
             curl_easy_getinfo(handle, CURLINFO_PRIVATE, (char**)&res);
-            curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &res->code);
+            if (message->data.result == CURLE_ABORTED_BY_CALLBACK || atomic_load(&res->cancelled)) {
+                res->code = naettCancelled;
+            } else {
+                curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &res->code);
+            }
             res->complete = 1;
             curl_easy_cleanup(handle);
         }
@@ -100,10 +104,23 @@ static size_t readCallback(char* buffer, size_t size, size_t numItems, void* use
 
 static size_t writeCallback(char* ptr, size_t size, size_t numItems, void* userData) {
     InternalResponse* res = (InternalResponse*)userData;
+    if (atomic_load(&res->cancelled)) {
+        return 0;
+    }
+
     InternalRequest* req = res->request;
     size_t bytesWritten = req->options.bodyWriter(ptr, size * numItems, req->options.bodyWriterData);
     res->totalBytesRead += bytesWritten;
     return bytesWritten;
+}
+
+static int progressCallback(void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
+    InternalResponse* res = (InternalResponse*)clientp;
+    (void)dltotal;
+    (void)dlnow;
+    (void)ultotal;
+    (void)ulnow;
+    return atomic_load(&res->cancelled) ? 1 : 0;
 }
 
 #define METHOD(A, B, C) (((A) << 16) | ((B) << 8) | (C))
@@ -188,6 +205,10 @@ void naettPlatformMakeRequest(InternalResponse* res) {
     curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, headerCallback);
     curl_easy_setopt(c, CURLOPT_HEADERDATA, res);
 
+    curl_easy_setopt(c, CURLOPT_NOPROGRESS, 0L);
+    curl_easy_setopt(c, CURLOPT_XFERINFOFUNCTION, progressCallback);
+    curl_easy_setopt(c, CURLOPT_XFERINFODATA, res);
+
     curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1);
 
     int bodySize = res->request->options.bodyReader(NULL, 0, res->request->options.bodyReaderData);
@@ -223,6 +244,10 @@ void naettPlatformMakeRequest(InternalResponse* res) {
 }
 
 void naettPlatformFreeRequest(InternalRequest* req) {
+}
+
+void naettPlatformCancel(InternalResponse* res) {
+    (void)res;
 }
 
 void naettPlatformCloseResponse(InternalResponse* res) {

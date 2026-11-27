@@ -114,6 +114,12 @@ static void* processRequest(void* data) {
         goto finally;
     }
 
+    atomic_store(&res->connection, (uintptr_t)(*env)->NewGlobalRef(env, connection));
+    if (atomic_load(&res->cancelled)) {
+        voidCall(env, connection, "disconnect", "()V");
+        goto finally;
+    }
+
     {
         jstring name = (*env)->NewStringUTF(env, "User-Agent");
         jstring value = (*env)->NewStringUTF(env, req->options.userAgent ? req->options.userAgent : NAETT_UA);
@@ -162,7 +168,7 @@ static void* processRequest(void* data) {
                 } else {
                     break;
                 }
-            } while (!res->closeRequested);
+            } while (!res->closeRequested && !atomic_load(&res->cancelled));
         voidCall(env, outputStream, "close", "()V");
     }
 
@@ -236,13 +242,16 @@ static void* processRequest(void* data) {
             req->options.bodyWriter(byteBuffer, bytesRead, req->options.bodyWriterData);
             res->totalBytesRead += bytesRead;
         }
-    } while (!res->closeRequested);
+    } while (!res->closeRequested && !atomic_load(&res->cancelled));
 
     voidCall(env, inputStream, "close", "()V");
 
     res->code = statusCode;
 
 finally:
+    if (atomic_load(&res->cancelled)) {
+        res->code = naettCancelled;
+    }
     res->complete = 1;
     (*env)->PopLocalFrame(env, NULL);
     JavaVM* vm = getVM();
@@ -268,6 +277,20 @@ void naettPlatformFreeRequest(InternalRequest* req) {
     (*env)->DeleteGlobalRef(env, req->urlObject);
 }
 
+void naettPlatformCancel(InternalResponse* res) {
+    jobject connection = (jobject)atomic_exchange(&res->connection, 0);
+    if (!connection) {
+        return;
+    }
+
+    JNIEnv* env = getEnv();
+    voidCall(env, connection, "disconnect", "()V");
+    if (catch (env)) {
+        (*env)->ExceptionClear(env);
+    }
+    (*env)->DeleteGlobalRef(env, connection);
+}
+
 void naettPlatformCloseResponse(InternalResponse* res) {
     res->closeRequested = 1;
     if (res->workerThread != 0) {
@@ -275,6 +298,12 @@ void naettPlatformCloseResponse(InternalResponse* res) {
         if (joinResult != 0) {
             LOGE("Failed to join: %s", strerror(joinResult));
         }
+    }
+
+    jobject connection = (jobject)atomic_exchange(&res->connection, 0);
+    if (connection) {
+        JNIEnv* env = getEnv();
+        (*env)->DeleteGlobalRef(env, connection);
     }
 }
 

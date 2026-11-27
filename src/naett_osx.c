@@ -140,7 +140,7 @@ static void didComplete(id self, SEL _sel, id session, id dataTask, id error) {
     object_getInstanceVariable(self, "response", (void**)&res);
     if (res != NULL) {
         if (error != nil) {
-            res->code = naettConnectionError;
+            res->code = atomic_load(&res->cancelled) ? naettCancelled : naettConnectionError;
         }
         res->complete = 1;
     }
@@ -182,9 +182,17 @@ void naettPlatformMakeRequest(InternalResponse* res) {
     res->session = session;
 
     id task = objc_msgSend_t(id, id)(session, sel("dataTaskWithRequest:"), req->urlRequest);
+    res->task = task;
+    retain(task);
     objc_msgSend_void(task, sel("resume"));
 
     release(p);
+}
+
+void naettPlatformCancel(InternalResponse* res) {
+    if (res->task) {
+        objc_msgSend_void(res->task, sel("cancel"));
+    }
 }
 
 void naettPlatformFreeRequest(InternalRequest* req) {
@@ -193,6 +201,10 @@ void naettPlatformFreeRequest(InternalRequest* req) {
 }
 
 void naettPlatformCloseResponse(InternalResponse* res) {
+    if (res->task) {
+        release(res->task);
+        res->task = nil;
+    }
     objc_msgSend_void(res->session, sel("invalidateAndCancel"));
     res->session = nil;
 }

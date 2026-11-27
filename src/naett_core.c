@@ -305,6 +305,18 @@ naettRes* naettMake(naettReq* request) {
     return (naettRes*) res;
 }
 
+void naettCancel(naettRes* response) {
+    assert(response != NULL);
+
+    InternalResponse* res = (InternalResponse*)response;
+    if (res->complete) {
+        return;
+    }
+
+    atomic_store(&res->cancelled, true);
+    naettPlatformCancel(res);
+}
+
 const void* naettGetBody(naettRes* response, int* size) {
     assert(response != NULL);
     assert(size != NULL);
